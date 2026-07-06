@@ -203,11 +203,46 @@ extend_indicator_series <- function(
     target_meta = target_meta
   )
 
-  observed_future <- sum(target_periods %in% future_target_times)
-  missing_obs <- max(
-    0L,
-    obs_per_target * length(future_target_times) - observed_future
+  # Observations in periods beyond the last forecast period cannot enter any
+  # regressor; keep them out of the alignment instead of failing validation
+  # on a partially observed beyond-horizon period.
+  if (length(future_target_times) > 0) {
+    horizon_end <- max(future_target_times)
+    within_horizon <- target_periods <= horizon_end
+    indicator_tbl <- indicator_tbl[within_horizon, , drop = FALSE]
+    target_periods <- target_periods[within_horizon]
+  }
+
+  # Calendar periods can hold more observations than the regular ladder
+  # implies (a quarter has 13 weekly or up to 92 daily observations, while the
+  # ladder expects 12 or 84). Filling future periods with a fixed count of
+  # grid steps therefore drifts: early future periods absorb the surplus and
+  # later ones come up short. Instead, generate a candidate grid, assign each
+  # candidate time to its calendar period, and keep exactly the observations
+  # each future period still needs.
+  last_time <- max(indicator_tbl$time)
+  n_candidate <- as.integer(
+    ceiling(1.35 * obs_per_target) * length(future_target_times) + 8L
   )
+  candidate_times <- shift_time_vec(
+    time = last_time,
+    n = seq_len(n_candidate) * indicator_meta$step[[1]],
+    unit = indicator_meta$unit[[1]]
+  )
+  candidate_periods <- compute_target_periods(
+    candidate_times,
+    target_anchor = target_anchor,
+    target_meta = target_meta
+  )
+
+  keep <- logical(n_candidate)
+  for (period in future_target_times) {
+    observed_in_period <- sum(target_periods == period)
+    needed <- max(0L, obs_per_target - observed_in_period)
+    idx <- which(candidate_periods == period)
+    keep[utils::head(idx, needed)] <- TRUE
+  }
+  missing_obs <- if (any(keep)) max(which(keep)) else 0L
 
   model <- NULL
   if (missing_obs > 0) {
@@ -219,8 +254,8 @@ extend_indicator_series <- function(
       )
     }
 
-    # Forecast only the high-frequency points needed to populate future
-    # target periods.
+    # Forecast along the full candidate grid up to the last needed point,
+    # then keep only the times that populate future target periods.
     extension <- forecast_indicator_values(
       indicator_tbl = indicator_tbl,
       indicator_meta = indicator_meta,
@@ -232,19 +267,13 @@ extend_indicator_series <- function(
     )
     model <- extension$model
 
-    last_time <- max(indicator_tbl$time)
-    new_times <- shift_time_vec(
-      time = last_time,
-      n = seq_len(missing_obs) * indicator_meta$step[[1]],
-      unit = indicator_meta$unit[[1]]
-    )
-
+    keep_head <- keep[seq_len(missing_obs)]
     indicator_tbl <- dplyr::bind_rows(
       indicator_tbl,
       dplyr::tibble(
         id = indicator_id,
-        time = new_times,
-        values = extension$values
+        time = candidate_times[seq_len(missing_obs)][keep_head],
+        values = extension$values[keep_head]
       )
     )
   }
