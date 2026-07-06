@@ -1,4 +1,4 @@
-test_that("weekly indicators support multi-step horizons despite calendar drift", {
+test_that("weekly indicators support multi-step horizons despite drift", {
   # A calendar quarter holds 13 weekly observations while the regular ladder
   # expects 12. Completion must fill each future quarter by period, not by a
   # fixed count of grid steps, or h > 1 fails for sub-monthly indicators.
