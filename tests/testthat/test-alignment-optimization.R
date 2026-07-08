@@ -1,4 +1,4 @@
-test_that("direct alignment reuses complete blocks", {
+test_that("direct alignment anchors covered periods period-aware", {
   indicator_tbl <- dplyr::tibble(
     id = "x",
     time = seq(as.Date("2020-01-01"), by = "day", length.out = 17),
@@ -13,10 +13,49 @@ test_that("direct alignment reuses complete blocks", {
     obs_per_target = 7
   )
 
-  expect_equal(direct_blocks$periods, target_times[3:4])
-  expect_equal(direct_blocks$blocks[1, ], 4:10)
-  expect_equal(direct_blocks$blocks[2, ], 11:17)
+  # newest observation (Jan 17) sits 4 days into its period (Jan 13); the
+  # earlier covered period (Jan 6) is anchored at the same relative position
+  # (Jan 10), and the two periods beyond the data stride backward from the
+  # newest observation
+  expect_equal(direct_blocks$periods, target_times)
+  expect_equal(direct_blocks$blocks[1, ], 4:10)   # Jan 6, anchored at Jan 10
+  expect_equal(direct_blocks$blocks[2, ], 11:17)  # Jan 13, anchored at Jan 17
+  expect_equal(direct_blocks$blocks[3, ], 4:10)   # Jan 20, backward stride
+  expect_equal(direct_blocks$blocks[4, ], 11:17)  # Jan 27, latest block
   expect_equal(direct_blocks$truncation$n_periods, 0)
+})
+
+test_that("direct alignment does not drift on calendar-weekly quarters", {
+  # Saturday-dated weeks over 2019-2020: calendar quarters hold 13 or 14
+  # Saturdays while the regular ladder expects 12, so fixed backward strides
+  # would displace historical blocks out of their quarters and produce more
+  # blocks than target periods
+  sats <- seq(as.Date("2019-01-05"), as.Date("2020-12-26"), by = "7 days")
+  indicator_tbl <- dplyr::tibble(id = "x", time = sats,
+                                 values = as.numeric(seq_along(sats)))
+  target_times <- seq(as.Date("2019-01-01"), as.Date("2020-10-01"),
+                      by = "quarter")
+
+  direct_blocks <- bridgr:::prepare_indicator_direct_blocks(
+    indicator_tbl = indicator_tbl,
+    indicator_id = "x",
+    target_times = target_times,
+    obs_per_target = 12
+  )
+
+  # one block per target period with enough history, never more
+  expect_lte(length(direct_blocks$periods), length(target_times))
+  expect_equal(nrow(direct_blocks$blocks), length(direct_blocks$periods))
+
+  # every covered period's block ends inside that period (no calendar drift)
+  for (i in seq_along(direct_blocks$periods)) {
+    p <- direct_blocks$periods[i]
+    anchor_value <- direct_blocks$blocks[i, 12]
+    anchor_time <- sats[anchor_value]
+    next_q <- seq(p, by = "quarter", length.out = 2)[2]
+    expect_gte(as.numeric(anchor_time), as.numeric(p))
+    expect_lt(as.numeric(anchor_time), as.numeric(next_q))
+  }
 })
 
 test_that("mean extension uses the latest available high-frequency block", {

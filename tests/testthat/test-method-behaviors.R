@@ -433,7 +433,10 @@ test_that("forecast method `direct` supports horizons greater than one", {
   )
 
   expect_equal(nrow(model$forecast_set), 2)
-  expect_equal(model$forecast_set[[model$indic_name[[1]]]][[1]], mean(30:36))
+  # day 43 is the first observation of forecast week 7, so week 7 is anchored
+  # period-aware at the newest observation (leads included); week 8 lies
+  # beyond the data and receives the latest complete block
+  expect_equal(model$forecast_set[[model$indic_name[[1]]]][[1]], mean(37:43))
   expect_equal(model$forecast_set[[model$indic_name[[1]]]][[2]], mean(37:43))
 })
 

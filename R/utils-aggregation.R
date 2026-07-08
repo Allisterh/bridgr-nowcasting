@@ -414,27 +414,84 @@ prepare_indicator_direct_blocks <- function(
 ) {
   indicator_tbl <- indicator_tbl |>
     dplyr::arrange(.data$time)
+  n <- nrow(indicator_tbl)
 
-  n_available_blocks <- floor(nrow(indicator_tbl) / obs_per_target)
-  if (n_available_blocks < 1) {
+  if (n < obs_per_target) {
     rlang::abort(
       paste0(
         "Indicator `", indicator_id,
         "` does not contain enough observations for direct alignment ",
         "(required at least ", obs_per_target,
-        ", available: ", nrow(indicator_tbl), ")."
+        ", available: ", n, ")."
       ),
       call = call
     )
   }
 
-  n_used_obs <- n_available_blocks * obs_per_target
-  used_values <- utils::tail(indicator_tbl$values, n_used_obs)
-  blocks <- matrix(used_values, ncol = obs_per_target, byrow = TRUE)
+  times <- indicator_tbl$time
+  values <- indicator_tbl$values
+  target_times <- sort(target_times)
+  last_obs <- times[n]
+
+  covered <- target_times[target_times <= last_obs]
+  uncovered <- target_times[target_times > last_obs]
+
+  block_ends <- integer(0)
+  block_periods <- target_times[0]
+
+  # Covered periods are anchored period-aware: the newest observation sits
+  # `delta` time units into its own target period, and every earlier period
+  # receives the block ending at the same relative position. On a regular
+  # ladder this reproduces fixed backward strides exactly; on calendar
+  # ladders, where target periods hold varying numbers of observations
+  # (e.g. 13-Saturday quarters on a 12-slot weekly ladder), fixed strides
+  # drift out of their periods while the period-relative anchor does not.
+  if (length(covered) > 0) {
+    delta <- as.numeric(last_obs) - as.numeric(max(covered))
+    anchors <- vapply(
+      seq_along(covered),
+      function(k) {
+        idx <- which(as.numeric(times) <= as.numeric(covered[k]) + delta)
+        if (length(idx) == 0) NA_integer_ else max(idx)
+      },
+      integer(1)
+    )
+    keep <- !is.na(anchors) & anchors >= obs_per_target
+    block_ends <- anchors[keep]
+    block_periods <- covered[keep]
+  }
+
+  # Periods beyond the newest observation keep the documented lead
+  # convention: the latest complete block is assigned to the farthest
+  # requested horizon and earlier complete blocks stride backward from there.
+  if (length(uncovered) > 0) {
+    strides <- n - (length(uncovered) - seq_along(uncovered)) * obs_per_target
+    keep_u <- strides >= obs_per_target
+    block_ends <- c(block_ends, strides[keep_u])
+    block_periods <- c(block_periods, uncovered[keep_u])
+  }
+
+  if (length(block_ends) == 0) {
+    rlang::abort(
+      paste0(
+        "Indicator `", indicator_id,
+        "` does not contain enough observations for direct alignment ",
+        "(required at least ", obs_per_target,
+        " before the first target period, available: ", n, ")."
+      ),
+      call = call
+    )
+  }
+
+  blocks <- t(vapply(
+    block_ends,
+    function(e) values[(e - obs_per_target + 1):e],
+    numeric(obs_per_target)
+  ))
   storage.mode(blocks) <- "double"
 
   list(
-    periods = utils::tail(target_times, n_available_blocks),
+    periods = block_periods,
     blocks = blocks,
     truncation = list(
       indicator_id = indicator_id,
