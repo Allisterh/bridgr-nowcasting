@@ -17,7 +17,8 @@
 #' @srrstats {G1.2} Documents the package lifecycle and stable interface.
 #' @srrstats {G1.4} Documents package functions with roxygen2.
 #' @srrstats {G1.4a} Documents internal helpers with roxygen2 and `@noRd`.
-#' @srrstats {G1.1} Positions `bridgr` relative to nearby R packages.
+#' @srrstats {G1.1} Positions `bridgr` relative to nearby R packages
+#' (`midasr`, `midasml`) in the package README.
 #' @srrstats {G5.2} Tests should cover warning and error behavior.
 #' @srrstats {G5.2a} Messages should be unique.
 #' @keywords internal
