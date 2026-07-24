@@ -12,6 +12,13 @@ parametric_opt_bounds <- c(-10, 10)
 parametric_multistart_jitter_sd <- 0.5
 
 
+#' Is this a parametric (weight-estimated) aggregator?
+#'
+#' Called from `validate_mf_inputs()` and `build_indicator_features()` in
+#' `mf_model.R` to route an indicator to the joint parametric-weight
+#' optimization path instead of a fixed aggregator (`"mean"`, `"last"`,
+#' `"sum"`, `"unrestricted"`, or numeric weights).
+#'
 #' @keywords internal
 #' @noRd
 is_parametric_aggregator <- function(aggregator) {
@@ -21,6 +28,12 @@ is_parametric_aggregator <- function(aggregator) {
 }
 
 
+#' Parameter names for a parametric aggregator
+#'
+#' Called by `parametric_parameter_count()` immediately below and by
+#' `parametric_parameter_labels()` further down in this file, which builds
+#' `theta`-vector labels for Delta-HAC standard errors.
+#'
 #' @keywords internal
 #' @noRd
 parametric_parameter_names <- function(aggregator) {
@@ -36,6 +49,13 @@ parametric_parameter_names <- function(aggregator) {
 }
 
 
+#' Number of parameters for a parametric aggregator
+#'
+#' Thin wrapper around `parametric_parameter_names()` above, used throughout
+#' this file and in `utils-input.R` wherever code needs to size a parameter
+#' vector for `"expalmon"` (2 parameters) or `"beta"` (2 parameters)
+#' aggregation without hardcoding the count.
+#'
 #' @keywords internal
 #' @noRd
 parametric_parameter_count <- function(aggregator) {
@@ -43,6 +63,12 @@ parametric_parameter_count <- function(aggregator) {
 }
 
 
+#' Default starting parameters for the parametric-aggregator optimizer
+#'
+#' Only called from `optimize_parametric_weights()` further down in this
+#' file, to fill in a starting value whenever the user does not supply
+#' `solver_options$start_values` for a given indicator.
+#'
 #' @keywords internal
 #' @noRd
 default_parametric_start <- function(aggregator) {
@@ -54,6 +80,15 @@ default_parametric_start <- function(aggregator) {
 }
 
 
+#' Screen the finalized estimation set for exact collinearity
+#'
+#' Only called from `check_estimation_set()` in `mf_model.R`, right after the
+#' estimation set is assembled and before `fit_target_model()` runs. Just
+#' dispatches to the two checks below in this file:
+#' `check_regressor_collinearity()` (regressor-vs-regressor) and
+#' `check_target_regressor_collinearity()` (target-vs-regressor); both abort
+#' on the first perfect affine dependence they find.
+#'
 #' @srrstats {RE2.4} Bridge regressions that collapse each submitted indicator
 #' to one finalized regressor column are screened for exact collinearity before
 #' fitting through one dedicated preprocessing routine that checks both
@@ -80,6 +115,12 @@ check_estimation_set_collinearity <- function(
 }
 
 
+#' Test whether `y` is an exact affine function of `x`
+#'
+#' Only called by `check_regressor_collinearity()` and
+#' `check_target_regressor_collinearity()` immediately below, to check the
+#' abort condition in each pairwise comparison. Not called anywhere else.
+#'
 #' @keywords internal
 #' @noRd
 has_perfect_affine_dependence <- function(x, y) {
@@ -96,6 +137,13 @@ has_perfect_affine_dependence <- function(x, y) {
 }
 
 
+#' Screen finalized regressors pairwise for exact collinearity
+#'
+#' Called from `check_estimation_set_collinearity()` immediately above. Only
+#' calls `has_perfect_affine_dependence()` (also just above) to check the
+#' abort condition for each regressor pair; this function exists solely to
+#' loop over pairs and raise one explicit error on the first match.
+#'
 #' @srrstats {RE2.4a} Finalized single-column bridge regressors are screened
 #' pairwise for exact affine dependencies before fitting, so duplicated or
 #' perfectly collinear predictor columns are rejected with an explicit
@@ -143,6 +191,12 @@ check_regressor_collinearity <- function(
 }
 
 
+#' Screen the target column against each finalized regressor
+#'
+#' Called from `check_estimation_set_collinearity()` above, as the second of
+#' its two checks. Only calls `has_perfect_affine_dependence()` to check the
+#' abort condition for each regressor against the target.
+#'
 #' @srrstats {RE2.4b} The target column is screened against each finalized
 #' single-column regressor before fitting, so response variables that are
 #' perfectly collinear with any submitted predictor are rejected explicitly.
@@ -181,6 +235,16 @@ check_target_regressor_collinearity <- function(
 }
 
 
+#' Extend one indicator series with forecasted future values
+#'
+#' Called from `build_indicator_features()` in `mf_model.R`, once per
+#' indicator, whenever `indic_predict` is not `"direct"`. Calls
+#' `compute_target_periods()` (`utils-frequency.R`) to place existing
+#' observations into target periods, `shift_time_vec()`
+#' (`utils-frequency.R`) to build a candidate future time grid, and
+#' `forecast_indicator_values()` immediately below to fill in the values for
+#' whichever candidate times are needed to complete future target periods.
+#'
 #' @keywords internal
 #' @noRd
 extend_indicator_series <- function(
@@ -282,6 +346,13 @@ extend_indicator_series <- function(
 }
 
 
+#' Most recent observed block of indicator values
+#'
+#' Only called from `extend_indicator_series()` above, to seed the
+#' `mean_reference_values` used when `indic_predict = "mean"`, so the mean
+#' used to fill future observations matches the mean used to fill missing
+#' history within the last observed block.
+#'
 #' @keywords internal
 #' @noRd
 latest_available_block_values <- function(
@@ -295,6 +366,14 @@ latest_available_block_values <- function(
 }
 
 
+#' Forecast an indicator series forward by one of the supported methods
+#'
+#' Only called from `extend_indicator_series()` above, to fill the
+#' higher-frequency observations an indicator is missing in future target
+#' periods. Implements `indic_predict = "last"`/`"mean"`/`"auto.arima"`/
+#' `"ets"` directly (`"direct"` alignment bypasses this function entirely and
+#' is handled by `prepare_indicator_direct_blocks()` below instead).
+#'
 #' @keywords internal
 #' @noRd
 forecast_indicator_values <- function(
@@ -344,6 +423,16 @@ forecast_indicator_values <- function(
 }
 
 
+#' Group one indicator's observations into per-target-period blocks
+#'
+#' Called from `build_indicator_features()` in `mf_model.R` for the
+#' non-direct alignment path (after `extend_indicator_series()` has filled in
+#' any needed forecasts), and again from `resample_mf_inputs()` below in this
+#' file when block-bootstrapping. Calls `compute_target_periods()`
+#' (`utils-frequency.R`) to assign each observation to a target period, then
+#' returns one row of `obs_per_target` values per period as a matrix, ready
+#' for `aggregate_indicator_blocks()` or the parametric-weight machinery.
+#'
 #' @keywords internal
 #' @noRd
 prepare_indicator_period_blocks <- function(
@@ -403,6 +492,13 @@ prepare_indicator_period_blocks <- function(
 }
 
 
+#' Build per-target-period blocks under direct MIDAS-style alignment
+#'
+#' Only called from `build_indicator_features()` in `mf_model.R`, on the
+#' `indic_predict = "direct"` path, as the direct-alignment counterpart to
+#' `prepare_indicator_period_blocks()` above (no forecasting; blocks are
+#' assigned period-relative-anchor lead/lag positions instead).
+#'
 #' @keywords internal
 #' @noRd
 prepare_indicator_direct_blocks <- function(
@@ -501,6 +597,16 @@ prepare_indicator_direct_blocks <- function(
 }
 
 
+#' Expand an indicator's per-period blocks into one column per HF position
+#'
+#' Only called from `build_indicator_features()` in `mf_model.R`, when
+#' `indic_aggregators = "unrestricted"` for an indicator. Turns the block
+#' matrix from `prepare_indicator_period_blocks()` /
+#' `prepare_indicator_direct_blocks()` above into long-format rows tagged
+#' `"<indicator_id>_hf1"`, `"<indicator_id>_hf2"`, ..., one bridge regressor
+#' per within-period high-frequency observation (U-MIDAS style), bypassing
+#' `aggregate_indicator_blocks()` below entirely.
+#'
 #' @keywords internal
 #' @noRd
 as_unrestricted_indicator_long <- function(indicator_id, periods, blocks) {
@@ -514,6 +620,15 @@ as_unrestricted_indicator_long <- function(indicator_id, periods, blocks) {
 }
 
 
+#' Collapse one indicator's per-period blocks to a single value per period
+#'
+#' Only called from `build_indicator_features()` in `mf_model.R`, for the
+#' fixed (non-parametric, non-unrestricted) aggregators `"mean"`, `"last"`,
+#' `"sum"`, and user-supplied numeric weight vectors. Parametric aggregators
+#' (`"expalmon"`, `"beta"`) instead go through
+#' `optimize_parametric_weights()` / `aggregate_parametric_specs()` further
+#' down in this file.
+#'
 #' @keywords internal
 #' @noRd
 aggregate_indicator_blocks <- function(
@@ -572,6 +687,15 @@ aggregate_indicator_blocks <- function(
 }
 
 
+#' Wrap one aggregated indicator series into long format
+#'
+#' Small tibble-building helper called from three places: fixed aggregation
+#' in `build_indicator_features()` (`mf_model.R`), the parametric-derivative
+#' pivot in `build_parametric_derivative_wide()` below, and the rebuilt
+#' aggregated series in `aggregate_parametric_specs()` below. Counterpart to
+#' `as_unrestricted_indicator_long()` above, which expands to multiple
+#' columns instead of collapsing to one.
+#'
 #' @keywords internal
 #' @noRd
 as_indicator_long <- function(indicator_id, periods, values) {
@@ -583,6 +707,12 @@ as_indicator_long <- function(indicator_id, periods, values) {
 }
 
 
+#' Within-period positions used to build the parametric weight curve
+#'
+#' Only called from `parametric_polynomial_basis()` below, which needs the
+#' `x`-axis positions (in `[-1, 1]` for `"expalmon"`, `[0, 1]` for `"beta"`)
+#' at which the polynomial/beta-shape basis is evaluated.
+#'
 #' @keywords internal
 #' @noRd
 parametric_positions <- function(aggregator, n_weights) {
@@ -598,22 +728,15 @@ parametric_positions <- function(aggregator, n_weights) {
 }
 
 
-#' @keywords internal
-#' @noRd
-exp_almon_gradient <- function(parameters, n_weights) {
-  basis <- parametric_polynomial_basis(
-    aggregator = "expalmon",
-    parameters = parameters,
-    n_weights = n_weights
-  )
-  weights <- exp_almon(parameters, n_weights)
-  weighted_basis <- colSums(weights * basis)
-
-  basis_centered <- sweep(basis, 2, weighted_basis, FUN = "-")
-  basis_centered * as.vector(weights)
-}
-
-
+#' Jacobian of the aggregation weights with respect to the shape parameters
+#'
+#' Only called from `compute_parametric_objective_gradient()` below, as one
+#' step of the analytic gradient used by the joint parametric-weight
+#' optimizer in `optimize_parametric_weights()`. Calls
+#' `parametric_polynomial_basis()` and `parametric_weights()` below for the
+#' `"expalmon"` case; the `"beta"` case is worked out inline because its
+#' weight function is not expressed through the shared polynomial basis.
+#'
 #' @keywords internal
 #' @noRd
 parametric_weight_gradient <- function(aggregator, parameters, n_weights) {
@@ -661,6 +784,14 @@ parametric_weight_gradient <- function(aggregator, parameters, n_weights) {
 }
 
 
+#' Chain-rule factor for the optimizer-scale reparameterization
+#'
+#' Only called from `compute_parametric_objective_gradient()` below. `"beta"`
+#' parameters are optimized on a log scale (see `to_optimizer_scale()` /
+#' `from_optimizer_scale()` further down), so gradients computed on the
+#' natural parameter scale need this `d(natural)/d(optimizer)` factor before
+#' they are valid on the scale the optimizer actually searches.
+#'
 #' @keywords internal
 #' @noRd
 optimizer_scale_derivative <- function(parameters, aggregator) {
@@ -672,6 +803,14 @@ optimizer_scale_derivative <- function(parameters, aggregator) {
 }
 
 
+#' Pivot one parameter's weight-derivative series to wide (regressor) form
+#'
+#' Only called from `compute_parametric_objective_gradient()` below, once per
+#' parametric parameter, so its per-period derivative values can be matched
+#' up against `estimation_set` by time and lag column name. Calls
+#' `as_indicator_long()` and `add_indicator_lags()` above to reuse the same
+#' long-to-wide pipeline used for the actual aggregated indicator data.
+#'
 #' @keywords internal
 #' @noRd
 build_parametric_derivative_wide <- function(
@@ -695,6 +834,16 @@ build_parametric_derivative_wide <- function(
 }
 
 
+#' Analytic gradient of the bridge-model RSS w.r.t. parametric shape params
+#'
+#' Only called from `evaluate_parametric_objective()` below, as the
+#' `gradient` component of its return value, which
+#' `optimize_parametric_weights()` passes straight through to
+#' `stats::optim()`/`stats::nlminb()`. Combines
+#' `parametric_weight_gradient()` and `optimizer_scale_derivative()` above
+#' with `build_parametric_derivative_wide()` above via the chain rule to
+#' avoid numerical differentiation during the joint optimization.
+#'
 #' @keywords internal
 #' @noRd
 compute_parametric_objective_gradient <- function(
@@ -767,6 +916,16 @@ compute_parametric_objective_gradient <- function(
 }
 
 
+#' Objective value and gradient for one trial parametric parameter vector
+#'
+#' Only called from the `evaluate()` closure inside
+#' `optimize_parametric_weights()` below, which caches results per parameter
+#' vector before passing `objective`/`gradient` wrapper closures to
+#' `run_parametric_optimizer()`. Rebuilds the full bridge estimation set
+#' (via `build_mf_estimation_set()` below) for the candidate weights, fits it
+#' by OLS, and reports the residual sum of squares plus its analytic
+#' gradient from `compute_parametric_objective_gradient()` above.
+#'
 #' @keywords internal
 #' @noRd
 evaluate_parametric_objective <- function(
@@ -849,6 +1008,15 @@ evaluate_parametric_objective <- function(
 }
 
 
+#' Polynomial basis matrix for exponential-Almon-style weight curves
+#'
+#' Called from `parametric_weight_gradient()` and `parametric_weights()` in
+#' this file, both of which need the same `positions^1, positions^2, ...`
+#' basis matrix: the former to build the weight Jacobian, the latter to turn
+#' basis coefficients into normalized weights via a softmax. Only defined for
+#' `"expalmon"`; `"beta"` weights are computed directly in the two callers
+#' instead, since the beta shape is not a linear combination of this basis.
+#'
 #' @keywords internal
 #' @noRd
 parametric_polynomial_basis <- function(aggregator, parameters, n_weights) {
@@ -869,6 +1037,15 @@ parametric_polynomial_basis <- function(aggregator, parameters, n_weights) {
 }
 
 
+#' Turn parametric shape parameters into a normalized weight vector
+#'
+#' The user-facing computation behind `"expalmon"`/`"beta"` aggregation:
+#' called from `aggregate_parametric_specs()` below (to build the aggregated
+#' series shown in `summary.mf_model()`'s parametric-weights block) and from
+#' the small `exp_almon()` wrapper below (kept for readability at call
+#' sites that only ever use the exponential-Almon case). Calls
+#' `parametric_polynomial_basis()` above for the `"expalmon"` case.
+#'
 #' @keywords internal
 #' @noRd
 parametric_weights <- function(aggregator, parameters, n_weights) {
@@ -914,6 +1091,13 @@ parametric_weights <- function(aggregator, parameters, n_weights) {
 }
 
 
+#' Symmetric optimizer-scale bounds for a set of parametric specs
+#'
+#' Only called from `optimize_parametric_weights()` below, to size and fill
+#' the `lower`/`upper` vectors passed to `run_parametric_optimizer()` (and
+#' `L-BFGS-B`/`nlminb` in particular). Uses the module-level
+#' `parametric_opt_bounds` constant defined at the top of this file.
+#'
 #' @keywords internal
 #' @noRd
 parametric_bounds <- function(specs) {
@@ -931,6 +1115,15 @@ parametric_bounds <- function(specs) {
 }
 
 
+#' Split a flat optimizer parameter vector back into per-indicator blocks
+#'
+#' Inverse of `flatten_parameter_blocks()` below. Called from
+#' `parameter_blocks_from_optimizer()` below (after each optimizer
+#' iteration), from `validate_parametric_solver_start()` in `utils-input.R`
+#' (to check user-supplied `solver_options$start_values`), and from
+#' `coefficient_vcov_delta_hac()` in `utils-uncertainty.R` (to perturb one
+#' parameter at a time for the Delta-HAC finite-difference Jacobian).
+#'
 #' @keywords internal
 #' @noRd
 split_parameter_vector <- function(parameters, specs) {
@@ -945,6 +1138,13 @@ split_parameter_vector <- function(parameters, specs) {
 }
 
 
+#' Flatten per-indicator parameter blocks into one optimizer vector
+#'
+#' Inverse of `split_parameter_vector()` above. Called from
+#' `optimize_parametric_weights()` below to build the optimizer's starting
+#' vector, and from `coefficient_vcov_delta_hac()` in `utils-uncertainty.R`
+#' to build the `theta` vector perturbed for the Delta-HAC Jacobian.
+#'
 #' @keywords internal
 #' @noRd
 flatten_parameter_blocks <- function(parameter_blocks, specs) {
@@ -960,6 +1160,13 @@ flatten_parameter_blocks <- function(parameter_blocks, specs) {
 }
 
 
+#' Map natural-scale parameters to the scale the optimizer searches
+#'
+#' Only called from `optimize_parametric_weights()` below, to convert the
+#' starting values into optimizer-scale units before the search (`"beta"`
+#' shape parameters must stay positive, so they are searched on a log
+#' scale). Inverse of `from_optimizer_scale()` immediately below.
+#'
 #' @keywords internal
 #' @noRd
 to_optimizer_scale <- function(parameters, aggregator) {
@@ -973,6 +1180,13 @@ to_optimizer_scale <- function(parameters, aggregator) {
 }
 
 
+#' Map optimizer-scale parameters back to the natural parameter scale
+#'
+#' Only called from `parameter_blocks_from_optimizer()` below, once per
+#' optimizer iteration, to turn the raw search vector back into the natural
+#' `"beta"`/`"expalmon"` parameters before computing weights. Inverse of
+#' `to_optimizer_scale()` immediately above.
+#'
 #' @keywords internal
 #' @noRd
 from_optimizer_scale <- function(parameters, aggregator) {
@@ -986,6 +1200,13 @@ from_optimizer_scale <- function(parameters, aggregator) {
 }
 
 
+#' Turn one flat optimizer vector into named, natural-scale parameter blocks
+#'
+#' Only called from `evaluate_parametric_objective()` above (once per
+#' objective/gradient evaluation) and once more from
+#' `optimize_parametric_weights()` below (to decode the final result).
+#' Combines `split_parameter_vector()` and `from_optimizer_scale()` above.
+#'
 #' @keywords internal
 #' @noRd
 parameter_blocks_from_optimizer <- function(parameters, specs) {
@@ -1009,6 +1230,15 @@ parameter_blocks_from_optimizer <- function(parameters, specs) {
 }
 
 
+#' Aggregate every parametric indicator's blocks at a given parameter guess
+#'
+#' Called from three places that all need "the aggregated series implied by
+#' this parameter vector": `evaluate_parametric_objective()` above (during
+#' optimization), `optimize_parametric_weights()` below (for the final
+#' result), and `rebuild_parametric_estimation_set()` further down (for
+#' Delta-HAC standard errors). Calls `parametric_weights()` and
+#' `as_indicator_long()` above.
+#'
 #' @keywords internal
 #' @noRd
 aggregate_parametric_specs <- function(parametric_specs, parameter_blocks) {
@@ -1040,6 +1270,14 @@ aggregate_parametric_specs <- function(parametric_specs, parameter_blocks) {
 }
 
 
+#' Run one solver (nlminb/optim) call for the joint parametric optimization
+#'
+#' Only called from the `run_starts()` closure inside
+#' `optimize_parametric_weights()` below, once per multi-start restart.
+#' Translates `solver_options$method` into the corresponding `stats::nlminb()`
+#' or `stats::optim()` call and normalizes both return shapes into one
+#' `list(par, value, convergence, message, method)` result.
+#'
 #' @keywords internal
 #' @noRd
 run_parametric_optimizer <- function(
@@ -1107,6 +1345,19 @@ run_parametric_optimizer <- function(
 }
 
 
+#' Jointly estimate parametric aggregation weights against the bridge fit
+#'
+#' The entry point for this file's parametric-aggregation machinery: called
+#' once from `build_indicator_features()` in `mf_model.R` whenever at least
+#' one indicator uses `indic_aggregators = "expalmon"` or `"beta"`. Runs a
+#' multi-start `stats::optim()`/`stats::nlminb()` search (via
+#' `run_parametric_optimizer()` above) over `evaluate_parametric_objective()`
+#' above, picks the best converged (or least-bad non-converged) result, and
+#' returns the final aggregated series, weights, and parameters via
+#' `aggregate_parametric_specs()`. Everything else in this file from
+#' `is_parametric_aggregator()` down to `run_parametric_optimizer()` exists
+#' to support this one function.
+#'
 #' @srrstats {RE3.0} Warns before keeping the best non-converged result.
 #' @keywords internal
 #' @noRd
@@ -1272,6 +1523,14 @@ optimize_parametric_weights <- function(
 }
 
 
+#' Add `indic_lags` lagged copies of each aggregated indicator series
+#'
+#' Called from `prepare_estimation_inputs()` in `mf_model.R` (the main
+#' non-parametric path), and twice within this file:
+#' `build_parametric_derivative_wide()` above and `build_mf_estimation_set()`
+#' below, so parametric-weight derivatives and rebuilt estimation sets stay
+#' consistent with the same `indic_lags` regressor structure as the main fit.
+#'
 #' @keywords internal
 #' @noRd
 add_indicator_lags <- function(data, indic_lags) {
@@ -1299,6 +1558,11 @@ add_indicator_lags <- function(data, indic_lags) {
 
 
 #' Exponential Almon polynomial weights
+#'
+#' Not called elsewhere in the package (`parametric_weights()` above is used
+#' internally instead); kept as a readable, directly testable
+#' `bridgr:::exp_almon()` entry point exercised from `tests/testthat/`.
+#'
 #' @keywords internal
 #' @noRd
 exp_almon <- function(parameters, n_weights) {
@@ -1310,6 +1574,14 @@ exp_almon <- function(parameters, n_weights) {
 }
 
 
+#' Column names for the target's own autoregressive lag regressors
+#'
+#' Called from `add_target_lagged_regressors()` immediately below,
+#' `prepare_estimation_inputs()` in `mf_model.R`, and
+#' `recursive_lm_forecast()` in `utils-forecast.R`. All three need the exact
+#' same `"<target_name>_lag1"`, `"<target_name>_lag2"`, ... naming
+#' convention to stay in sync when reading and writing target-lag columns.
+#'
 #' @keywords internal
 #' @noRd
 target_lag_regressor_names <- function(target_name, target_lags) {
@@ -1321,6 +1593,14 @@ target_lag_regressor_names <- function(target_name, target_lags) {
 }
 
 
+#' Add target autoregressive lag columns and drop the resulting NA rows
+#'
+#' Called from `prepare_estimation_inputs()` in `mf_model.R` (building the
+#' main estimation set) and from `build_mf_estimation_set()` immediately
+#' below (rebuilding the estimation set for a candidate parametric weight
+#' vector), so both paths compute target lags identically. Uses
+#' `target_lag_regressor_names()` above for the column names.
+#'
 #' @keywords internal
 #' @noRd
 add_target_lagged_regressors <- function(
@@ -1342,6 +1622,16 @@ add_target_lagged_regressors <- function(
 }
 
 
+#' Build a wide bridge estimation set from long target and feature data
+#'
+#' Called from `evaluate_parametric_objective()` above (rebuilding the set
+#' for each trial parameter vector during optimization) and from
+#' `rebuild_parametric_estimation_set()` below (rebuilding it for Delta-HAC
+#' standard errors). Not used for the main model fit, which builds its
+#' estimation set directly in `prepare_estimation_inputs()` in `mf_model.R`
+#' rather than through this helper. Calls `add_indicator_lags()` and
+#' `add_target_lagged_regressors()` above.
+#'
 #' @keywords internal
 #' @noRd
 build_mf_estimation_set <- function(
@@ -1371,6 +1661,13 @@ build_mf_estimation_set <- function(
 }
 
 
+#' Fitted mean at a rebuilt estimation set, given fixed coefficients
+#'
+#' Only called from `coefficient_vcov_delta_hac()` in `utils-uncertainty.R`,
+#' twice per parametric parameter (once for a `+epsilon` perturbation, once
+#' for `-epsilon`), to build the central-difference Jacobian column for that
+#' parameter's effect on the fitted target mean.
+#'
 #' @keywords internal
 #' @noRd
 mf_mean_from_parameters <- function(
@@ -1386,6 +1683,13 @@ mf_mean_from_parameters <- function(
 }
 
 
+#' Column labels for the flattened parametric-parameter (theta) vector
+#'
+#' Only called from `coefficient_vcov_delta_hac()` in `utils-uncertainty.R`,
+#' to name the extra Jacobian columns (beyond the linear-model coefficients)
+#' used for Delta-HAC standard errors. Calls `parametric_parameter_names()`
+#' near the top of this file.
+#'
 #' @keywords internal
 #' @noRd
 parametric_parameter_labels <- function(parametric_specs) {
@@ -1407,6 +1711,13 @@ parametric_parameter_labels <- function(parametric_specs) {
 }
 
 
+#' Rebuild the bridge estimation set at a given parametric parameter guess
+#'
+#' Only called from `coefficient_vcov_delta_hac()` in `utils-uncertainty.R`,
+#' three times per parameter (baseline, `+epsilon`, `-epsilon`) while
+#' building the Delta-HAC Jacobian. Combines `aggregate_parametric_specs()`
+#' and `build_mf_estimation_set()` above.
+#'
 #' @keywords internal
 #' @noRd
 rebuild_parametric_estimation_set <- function(
@@ -1437,6 +1748,16 @@ rebuild_parametric_estimation_set <- function(
 }
 
 
+#' Residual sum of squares for a bridge estimation set
+#'
+#' Not called from elsewhere in the package's model-fitting code (the actual
+#' fit path uses `stats::lm()` via `fit_target_model()` in
+#' `utils-forecast.R`, and the parametric objective computes RSS inline in
+#' `evaluate_parametric_objective()` above). Kept as a small, directly
+#' testable `bridgr:::compute_mf_loss()` unit exercised from
+#' `tests/testthat/test-mf_model.R` to check joint-vs-separate parametric
+#' aggregation losses.
+#'
 #' @keywords internal
 #' @noRd
 compute_mf_loss <- function(
@@ -1478,6 +1799,16 @@ compute_mf_loss <- function(
 }
 
 
+#' Draw one moving-block-bootstrap resample of target and indicator inputs
+#'
+#' Only called from `bootstrap_mf_system()` in `utils-bootstrap.R`, once per
+#' full-system bootstrap replication (`full_system_bootstrap = TRUE`). Calls
+#' `moving_block_bootstrap_indices()` (`utils-bootstrap.R`) to draw the
+#' resampled target-period order, then rebuilds matching indicator blocks
+#' with `prepare_indicator_period_blocks()` and `as_indicator_period_long()`
+#' above/`utils-frequency.R`, keeping future (forecast-horizon) indicator
+#' observations unresampled.
+#'
 #' @keywords internal
 #' @noRd
 resample_mf_inputs <- function(

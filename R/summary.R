@@ -37,6 +37,11 @@ summary.mf_model <- function(object, ...) {
 }
 
 
+#' Format a number for summary/print output (3 decimal places)
+#'
+#' Called from six of the `print_*` blocks below, wherever `summary.mf_model()`
+#' needs consistent numeric formatting.
+#'
 #' @keywords internal
 #' @noRd
 format_summary_number <- function(x) {
@@ -44,6 +49,12 @@ format_summary_number <- function(x) {
 }
 
 
+#' Print the model header block (target, frequency, horizon, rows)
+#'
+#' One of eight `print_*` render blocks called in sequence from
+#' `summary.mf_model()` above, each responsible for one section of the
+#' printed report; each is called exactly once, from there only.
+#'
 #' @keywords internal
 #' @noRd
 print_model_header <- function(object) {
@@ -62,6 +73,11 @@ print_model_header <- function(object) {
 }
 
 
+#' Print the target-equation coefficient table
+#'
+#' Called once from `summary.mf_model()` above. Calls
+#' `format_summary_number()` above.
+#'
 #' @keywords internal
 #' @noRd
 print_coefficient_table <- function(object) {
@@ -96,6 +112,11 @@ print_coefficient_table <- function(object) {
 }
 
 
+#' Print the goodness-of-fit table (R-squared, adjusted R-squared, sigma)
+#'
+#' Called once from `summary.mf_model()` above. Calls
+#' `format_summary_number()` above.
+#'
 #' @keywords internal
 #' @noRd
 print_gof_table <- function(object) {
@@ -125,6 +146,10 @@ print_gof_table <- function(object) {
 }
 
 
+#' Print the per-indicator frequency/predict/aggregation summary table
+#'
+#' Called once from `summary.mf_model()` above.
+#'
 #' @keywords internal
 #' @noRd
 print_indicator_summary <- function(object) {
@@ -164,6 +189,12 @@ print_indicator_summary <- function(object) {
 }
 
 
+#' Print user-supplied numeric aggregation weights, if any were used
+#'
+#' Called once from `summary.mf_model()` above; no-ops (returns
+#' `invisible(NULL)`) when no indicator used numeric weights. Calls
+#' `format_summary_number()` above.
+#'
 #' @keywords internal
 #' @noRd
 print_custom_weights_block <- function(object) {
@@ -193,6 +224,12 @@ print_custom_weights_block <- function(object) {
 }
 
 
+#' Print estimated parametric aggregation weights and parameters, if any
+#'
+#' Called once from `summary.mf_model()` above; no-ops when no indicator used
+#' parametric (`"expalmon"`/`"beta"`) aggregation. Calls
+#' `format_summary_number()` above.
+#'
 #' @keywords internal
 #' @noRd
 print_parametric_block <- function(object) {
@@ -230,6 +267,11 @@ print_parametric_block <- function(object) {
 }
 
 
+#' Print the uncertainty method and diagnostics block, if `se = TRUE`
+#'
+#' Called once from `summary.mf_model()` above; no-ops when neither
+#' coefficient nor prediction uncertainty was requested.
+#'
 #' @keywords internal
 #' @noRd
 print_uncertainty_block <- function(object) {
@@ -277,6 +319,12 @@ print_uncertainty_block <- function(object) {
 }
 
 
+#' Print the joint parametric-optimization diagnostics block, if applicable
+#'
+#' Called once from `summary.mf_model()` above; no-ops when
+#' `object$parametric_optimization` is `NULL` (no parametric indicators).
+#' Calls `format_summary_number()` above.
+#'
 #' @keywords internal
 #' @noRd
 print_optimization_block <- function(object) {

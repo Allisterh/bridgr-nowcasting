@@ -347,6 +347,16 @@ bridge <- function(...) {
   mf_model(...)
 }
 
+#' Fit a bridge model on already-standardized target and indicator data
+#'
+#' Called from `mf_model()` above (the main fit) and from
+#' `bootstrap_mf_system()` in `utils-bootstrap.R` (once per full-system
+#' bootstrap replication, on resampled data). The core five-step pipeline:
+#' `prepare_estimation_inputs()`, `check_estimation_set()`,
+#' `build_mf_formula()`, `fit_target_model()` (`utils-forecast.R`),
+#' `compute_model_uncertainty()`, `assemble_mf_model()` — all defined below
+#' in this file except `fit_target_model()`.
+#'
 #' @srrstats {RE4.7} Stores parametric convergence metadata.
 #' @srrstats {RE4.8} Stores the target series and its frequency metadata.
 #' @srrstats {RE4.13} Stores indicator data, frequencies, and regressor names.
@@ -432,6 +442,15 @@ fit_mf_model <- function(
 }
 
 
+#' Align inputs, build indicator features, and assemble the estimation set
+#'
+#' Only called from `fit_mf_model()` above, as its first step. Calls
+#' `align_mf_inputs()` (`utils-frequency.R`), `target_future_times()`
+#' (`utils-frequency.R`), `build_indicator_features()` below, and
+#' `add_indicator_lags()`/`add_target_lagged_regressors()`
+#' (`utils-aggregation.R`) to build both the in-sample estimation set and the
+#' forecast-horizon regressor set in one pass.
+#'
 #' @keywords internal
 #' @noRd
 prepare_estimation_inputs <- function(
@@ -521,6 +540,15 @@ prepare_estimation_inputs <- function(
 }
 
 
+#' Validate the assembled estimation set before fitting
+#'
+#' Only called from `fit_mf_model()` above, right after
+#' `prepare_estimation_inputs()`. Calls `check_estimation_set_collinearity()`
+#' (`utils-aggregation.R`), skipping it for direct alignment or unrestricted
+#' aggregation (both routinely produce collinear-looking regressor blocks by
+#' construction), and separately warns on a low
+#' observations-per-predictor ratio for unrestricted (U-MIDAS) specs.
+#'
 #' @keywords internal
 #' @noRd
 check_estimation_set <- function(
@@ -588,6 +616,14 @@ check_estimation_set <- function(
 }
 
 
+#' Build the target-equation formula from column names
+#'
+#' Only called from `fit_mf_model()` above, right before
+#' `fit_target_model()` (`utils-forecast.R`) uses the resulting formula to
+#' call `stats::lm()`. Backtick-quotes every name so indicator ids
+#' containing special characters (e.g. `"_hf1"`, `"_lag1"` suffixes) parse
+#' correctly as a formula.
+#'
 #' @keywords internal
 #' @noRd
 build_mf_formula <- function(target_name, regressor_names) {
@@ -601,6 +637,15 @@ build_mf_formula <- function(target_name, regressor_names) {
 }
 
 
+#' Compute coefficient and prediction uncertainty for a fitted bridge model
+#'
+#' Only called from `fit_mf_model()` above, as its second-to-last step
+#' (before `assemble_mf_model()` below). Calls
+#' `compute_mf_coefficient_uncertainty()` (`utils-uncertainty.R`),
+#' `bootstrap_mf_system()` (`utils-bootstrap.R`, when
+#' `full_system_bootstrap = TRUE`), and `build_prediction_uncertainty()`
+#' (`utils-bootstrap.R`).
+#'
 #' @keywords internal
 #' @noRd
 compute_model_uncertainty <- function(
@@ -699,6 +744,14 @@ compute_model_uncertainty <- function(
 }
 
 
+#' Assemble the final `"mf_model"` object
+#'
+#' Only called from `fit_mf_model()` above, as its last step. Packages every
+#' intermediate result computed earlier in the fitting pipeline into the
+#' `"mf_model"` list structure that all accessors (`accessors.R`),
+#' `summary.mf_model()` (`summary.R`), `plot.mf_model()` (`plot.R`), and
+#' `forecast.mf_model()` (`forecast.R`) read from.
+#'
 #' @keywords internal
 #' @noRd
 assemble_mf_model <- function(
@@ -769,6 +822,14 @@ assemble_mf_model <- function(
   )
 }
 
+#' Validate and normalize every `mf_model()` control argument
+#'
+#' Only called from `mf_model()` above, right after inputs are standardized
+#' by `as_mf_tbl()`/`normalize_period_start_data()` (`utils-input.R`). The
+#' single point where every `check_*`/`normalize_*` helper in
+#' `utils-input.R` and `utils-frequency.R` is invoked; returns the `config`
+#' list threaded through `fit_mf_model()` below and everything it calls.
+#'
 #' @srrstats {G2.0} Checks scalar and per-indicator control lengths.
 #' @srrstats {G2.1} Type-checks controls before model fitting.
 #' @srrstats {G2.2} Restricts `target` to one series.
@@ -917,6 +978,18 @@ validate_mf_inputs <- function(
   )
 }
 
+#' Extend, block, and aggregate every indicator into bridge regressors
+#'
+#' Only called from `prepare_estimation_inputs()` above, once per
+#' `mf_model()`/`bootstrap_mf_system()` fit. The main per-indicator loop:
+#' for each indicator, calls `extend_indicator_series()` or
+#' `prepare_indicator_direct_blocks()`, then
+#' `prepare_indicator_period_blocks()`, then one of
+#' `as_unrestricted_indicator_long()`/`aggregate_indicator_blocks()`, or
+#' defers to the joint `optimize_parametric_weights()` call after the loop —
+#' all defined in `utils-aggregation.R`. This is where `indic_predict` and
+#' `indic_aggregators` are actually applied per indicator.
+#'
 #' @keywords internal
 #' @noRd
 build_indicator_features <- function(

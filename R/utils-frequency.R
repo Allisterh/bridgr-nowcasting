@@ -1,3 +1,10 @@
+#' Default number of lower-level observations per higher-level unit
+#'
+#' Only called from `normalize_frequency_conversions()` below, as the base
+#' the user's `frequency_conversions` overrides are merged into. See the
+#' `spm`/`mph`/`hpd`/`dpw`/`wpm`/`mpq`/`qpy` documentation in [mf_model()]
+#' (`mf_model.R`) for what each name means.
+#'
 #' @keywords internal
 #' @noRd
 default_frequency_conversions <- function() {
@@ -13,6 +20,12 @@ default_frequency_conversions <- function() {
 }
 
 
+#' The regular frequency ladder, coarsest last
+#'
+#' Only called from `observations_per_target_period()` below, to look up
+#' where the indicator's and target's units fall on the
+#' second/minute/.../year ladder.
+#'
 #' @keywords internal
 #' @noRd
 frequency_levels <- function() {
@@ -20,6 +33,12 @@ frequency_levels <- function() {
 }
 
 
+#' Names of the conversion factors between adjacent frequency-ladder levels
+#'
+#' Only called from `observations_per_target_period()` below, to look up
+#' which `frequency_conversions` entries (`spm`, `mph`, ...) apply between
+#' two ladder positions. Order matches `frequency_levels()` above.
+#'
 #' @keywords internal
 #' @noRd
 frequency_edges <- function() {
@@ -27,6 +46,11 @@ frequency_edges <- function() {
 }
 
 
+#' Merge user-supplied `frequency_conversions` overrides into the defaults
+#'
+#' Only called from `validate_mf_inputs()` in `mf_model.R`. Calls
+#' `default_frequency_conversions()` above.
+#'
 #' @keywords internal
 #' @noRd
 normalize_frequency_conversions <- function(
@@ -79,6 +103,12 @@ normalize_frequency_conversions <- function(
 }
 
 
+#' Infer the regular frequency of every series id in a long tibble
+#'
+#' Only called from `validate_mf_inputs()` in `mf_model.R`, once for
+#' `target_tbl` (using only the first row of the result) and once for
+#' `indic_tbl`. Calls `infer_series_frequency()` below per series group.
+#'
 #' @keywords internal
 #' @noRd
 infer_frequency_table <- function(data, call = rlang::caller_env()) {
@@ -96,6 +126,13 @@ infer_frequency_table <- function(data, call = rlang::caller_env()) {
 }
 
 
+#' Infer the regular frequency of one series' timestamps
+#'
+#' Only called from `infer_frequency_table()` above, once per series group.
+#' Tries `detect_month_frequency()` below first (calendar-aligned month
+#' /quarter/year detection), then falls back to `detect_time_frequency()`
+#' below (fixed-duration week/day/hour/minute/second detection).
+#'
 #' @keywords internal
 #' @noRd
 infer_series_frequency <- function(times, id, call = rlang::caller_env()) {
@@ -129,6 +166,14 @@ infer_series_frequency <- function(times, id, call = rlang::caller_env()) {
 }
 
 
+#' Detect a calendar-aligned month/quarter/year frequency
+#'
+#' Called from `infer_series_frequency()` above (as the primary detector) and
+#' from `fallback_period_start_times()` in `utils-input.R` (to check whether
+#' floored candidate timestamps yield a clean calendar frequency). Returns
+#' `NULL` when timestamps are not month-floored or the month step is
+#' irregular; the caller falls back to `detect_time_frequency()` below.
+#'
 #' @keywords internal
 #' @noRd
 detect_month_frequency <- function(times) {
@@ -158,6 +203,14 @@ detect_month_frequency <- function(times) {
 }
 
 
+#' Detect a fixed-duration week/day/hour/minute/second frequency
+#'
+#' Called from `infer_series_frequency()` above (as the fallback detector,
+#' after `detect_month_frequency()` returns `NULL`) and from
+#' `fallback_period_start_times()` in `utils-input.R` (to check whether raw
+#' timestamps are already regular before trying calendar-floored
+#' candidates).
+#'
 #' @keywords internal
 #' @noRd
 detect_time_frequency <- function(times) {
@@ -185,6 +238,12 @@ detect_time_frequency <- function(times) {
 }
 
 
+#' Trim target and indicator data to their common starting time
+#'
+#' Only called from `prepare_estimation_inputs()` in `mf_model.R`, right
+#' after frequency inference, so no target period is ever missing indicator
+#' history that predates the indicator's first observation.
+#'
 #' @keywords internal
 #' @noRd
 align_mf_inputs <- function(
@@ -208,6 +267,14 @@ align_mf_inputs <- function(
 }
 
 
+#' Number of indicator observations expected within each target period
+#'
+#' Called from `validate_mf_inputs()` and `build_indicator_features()` in
+#' `mf_model.R`, and from `resample_mf_inputs()` in `utils-aggregation.R`.
+#' Uses `frequency_levels()` and `frequency_edges()` above to walk the
+#' regular ladder between the indicator's and target's inferred units and
+#' multiply the relevant `frequency_conversions` factors.
+#'
 #' @keywords internal
 #' @noRd
 observations_per_target_period <- function(
@@ -250,6 +317,12 @@ observations_per_target_period <- function(
 }
 
 
+#' `h` future target-period times after the last observed target time
+#'
+#' Called from `prepare_estimation_inputs()` in `mf_model.R` and from
+#' `build_forecast_target_times()` below (a thin identically-named-argument
+#' wrapper used elsewhere for clarity). Calls `shift_time_vec()` below.
+#'
 #' @keywords internal
 #' @noRd
 target_future_times <- function(last_time, target_meta, h) {
@@ -261,6 +334,14 @@ target_future_times <- function(last_time, target_meta, h) {
 }
 
 
+#' Map each timestamp to the start time of its enclosing target period
+#'
+#' Called throughout the package wherever indicator observations need to be
+#' bucketed by target period: `extend_indicator_series()`,
+#' `prepare_indicator_period_blocks()`, and `resample_mf_inputs()` in
+#' `utils-aggregation.R`, and `prepare_future_indicator_blocks()` below.
+#' Calls `unit_distance()` and `shift_time_vec()` below.
+#'
 #' @keywords internal
 #' @noRd
 compute_target_periods <- function(times, target_anchor, target_meta) {
@@ -278,6 +359,11 @@ compute_target_periods <- function(times, target_anchor, target_meta) {
 }
 
 
+#' Signed distance from `origin` to each time, in units of `unit`
+#'
+#' Only called from `compute_target_periods()` above, to measure how many
+#' whole target-period steps separate each timestamp from the anchor.
+#'
 #' @keywords internal
 #' @noRd
 unit_distance <- function(times, origin, unit) {
@@ -313,6 +399,13 @@ unit_distance <- function(times, origin, unit) {
 }
 
 
+#' Shift one timestamp forward (or backward) by `n` units of `unit`
+#'
+#' Only called from `shift_time_vec()` below, once per shift amount, via
+#' `lapply()`. Kept as a separate scalar function (rather than vectorizing
+#' `n` directly) because `%m+%` and `lubridate::period()` need a
+#' single-length step to shift months/quarters/years consistently.
+#'
 #' @keywords internal
 #' @noRd
 shift_time <- function(time, n, unit) {
@@ -348,6 +441,14 @@ shift_time <- function(time, n, unit) {
 }
 
 
+#' Vectorized wrapper around `shift_time()` above over a vector of steps `n`
+#'
+#' Called throughout this file (`target_future_times()`,
+#' `compute_target_periods()`, `within_target_period_times()` below) and from
+#' `extend_indicator_series()` in `utils-aggregation.R`, wherever a single
+#' `time` origin needs to be shifted by several different step counts at
+#' once.
+#'
 #' @keywords internal
 #' @noRd
 shift_time_vec <- function(time, n, unit) {
@@ -359,6 +460,13 @@ shift_time_vec <- function(time, n, unit) {
 }
 
 
+#' Thin `target_future_times()` wrapper with forecast-specific argument names
+#'
+#' Only called from `resample_mf_inputs()` in `utils-aggregation.R`, to build
+#' the forecast-horizon target times for one bootstrap resample. Kept
+#' separate from `target_future_times()` above only for a clearer call-site
+#' argument name (`last_target_time` vs. `last_time`).
+#'
 #' @keywords internal
 #' @noRd
 build_forecast_target_times <- function(
@@ -374,6 +482,13 @@ build_forecast_target_times <- function(
 }
 
 
+#' The `n_obs` indicator-frequency timestamps making up one target period
+#'
+#' Called from `as_indicator_period_long()` below and from
+#' `resample_mf_inputs()` in `utils-aggregation.R`, to reconstruct plausible
+#' high-frequency timestamps for a block of aggregated/resampled values that
+#' only carries a target-period start time.
+#'
 #' @keywords internal
 #' @noRd
 within_target_period_times <- function(period_start, indicator_meta, n_obs) {
@@ -385,6 +500,13 @@ within_target_period_times <- function(period_start, indicator_meta, n_obs) {
 }
 
 
+#' Expand a resampled indicator block matrix back into long-format rows
+#'
+#' Only called from `resample_mf_inputs()` in `utils-aggregation.R`, to turn
+#' the block-bootstrapped indicator blocks (one row per target period) back
+#' into the `id`/`time`/`values` long format the rest of the fitting
+#' pipeline expects. Calls `within_target_period_times()` above.
+#'
 #' @keywords internal
 #' @noRd
 as_indicator_period_long <- function(

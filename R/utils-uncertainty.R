@@ -1,4 +1,9 @@
 
+#' Newey-West-style automatic HAC lag truncation order
+#'
+#' Only called from `hac_long_run_covariance()` below, when `lag` is not
+#' supplied explicitly.
+#'
 #' @keywords internal
 #' @noRd
 hac_lag_order <- function(n_obs) {
@@ -10,6 +15,11 @@ hac_lag_order <- function(n_obs) {
 }
 
 
+#' Newey-West HAC long-run covariance of a score matrix
+#'
+#' Only called from `vcov_from_jacobian()` below, as the sandwich estimator's
+#' "meat" matrix. Calls `hac_lag_order()` above when `lag` is not supplied.
+#'
 #' @keywords internal
 #' @noRd
 hac_long_run_covariance <- function(scores, lag = NULL) {
@@ -40,6 +50,13 @@ hac_long_run_covariance <- function(scores, lag = NULL) {
 }
 
 
+#' Sandwich HAC covariance from a model's Jacobian and residuals
+#'
+#' Called from `coefficient_vcov_hac()` below (linear-model case, Jacobian =
+#' the design matrix) and `coefficient_vcov_delta_hac()` below (Delta-method
+#' case, Jacobian augmented with parametric-parameter derivative columns).
+#' Calls `hac_long_run_covariance()` above.
+#'
 #' @keywords internal
 #' @noRd
 vcov_from_jacobian <- function(jacobian, residuals, lag = NULL) {
@@ -75,6 +92,14 @@ vcov_from_jacobian <- function(jacobian, residuals, lag = NULL) {
 }
 
 
+#' HAC coefficient covariance for a plain (non-parametric) linear target fit
+#'
+#' Only called from `compute_mf_coefficient_uncertainty()` below, on the path
+#' where no indicator uses parametric aggregation (`parametric_specs` is
+#' empty). Calls `vcov_from_jacobian()` above with the model matrix as the
+#' Jacobian. See `coefficient_vcov_delta_hac()` below for the parametric
+#' case.
+#'
 #' @keywords internal
 #' @noRd
 coefficient_vcov_hac <- function(model) {
@@ -91,6 +116,17 @@ coefficient_vcov_hac <- function(model) {
 }
 
 
+#' Delta-method HAC coefficient covariance including parametric parameters
+#'
+#' Only called from `compute_mf_coefficient_uncertainty()` below, when at
+#' least one indicator uses parametric aggregation. Builds an augmented
+#' Jacobian (linear coefficients plus a finite-difference column per
+#' parametric parameter, via `rebuild_parametric_estimation_set()` and
+#' `mf_mean_from_parameters()` in `utils-aggregation.R`) and passes it to
+#' `vcov_from_jacobian()` above. Uses `split_parameter_vector()`,
+#' `flatten_parameter_blocks()`, and `parametric_parameter_labels()`
+#' (`utils-aggregation.R`) to manage the parameter vector.
+#'
 #' @keywords internal
 #' @noRd
 coefficient_vcov_delta_hac <- function(
@@ -192,6 +228,15 @@ coefficient_vcov_delta_hac <- function(
 }
 
 
+#' Coefficient standard errors for a fitted bridge model
+#'
+#' Only called from `compute_model_uncertainty()` in `mf_model.R`, when
+#' `se = TRUE`. Dispatches to `coefficient_vcov_hac()` above (no parametric
+#' indicators) or `coefficient_vcov_delta_hac()` above (one or more
+#' parametric indicators) and reports the appropriate method label. This
+#' entry point is superseded by the full-system block bootstrap when
+#' `full_system_bootstrap = TRUE` (see `compute_model_uncertainty()`).
+#'
 #' @keywords internal
 #' @noRd
 compute_mf_coefficient_uncertainty <- function(

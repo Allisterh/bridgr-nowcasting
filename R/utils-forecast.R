@@ -1,4 +1,10 @@
 
+#' Fit the target equation by OLS
+#'
+#' Only called from `fit_mf_model()` in `mf_model.R`. Kept as a one-line
+#' named wrapper around `stats::lm()` so the main fitting pipeline reads as a
+#' sequence of named steps.
+#'
 #' @keywords internal
 #' @noRd
 fit_target_model <- function(
@@ -9,6 +15,15 @@ fit_target_model <- function(
 }
 
 
+#' Recursively forecast the target equation, feeding back predicted lags
+#'
+#' Called from `fit_mf_model()` in `mf_model.R` (in-sample point path),
+#' `forecast.mf_model()` in `forecast.R` (out-of-sample point forecast), and
+#' `simulate_target_model_draws()` below (once per simulated path, with
+#' `innovations` supplied so residual draws propagate recursively through
+#' the target's own lags). Calls `target_lag_regressor_names()`
+#' (`utils-aggregation.R`).
+#'
 #' @keywords internal
 #' @noRd
 recursive_lm_forecast <- function(
@@ -92,6 +107,12 @@ recursive_lm_forecast <- function(
 }
 
 
+#' Demean a fitted model's residuals
+#'
+#' Only called from `simulate_target_model_draws()` below, so residuals
+#' resampled as innovations have mean zero (avoiding a systematic bias in
+#' simulated forecast paths from any small-sample residual mean).
+#'
 #' @keywords internal
 #' @noRd
 center_model_residuals <- function(model) {
@@ -100,6 +121,16 @@ center_model_residuals <- function(model) {
 }
 
 
+#' Simulate `n_paths` residual-resampled forecast paths
+#'
+#' Called from `forecast.mf_model()` (`forecast.R`),
+#' `predictive_target_model_draw()` and `bootstrap_mf_system()`
+#' (`utils-bootstrap.R`), and `build_prediction_uncertainty()`
+#' (`utils-bootstrap.R`) — every uncertainty path that needs simulated
+#' target paths funnels through here. Calls `center_model_residuals()` above
+#' to build the innovation pool, then `recursive_lm_forecast()` above once
+#' per path.
+#'
 #' @keywords internal
 #' @noRd
 simulate_target_model_draws <- function(

@@ -12,6 +12,13 @@ default_bootstrap_block_length <- function(n_rows) {
 }
 
 
+#' Resolve the effective block length for the full-system block bootstrap
+#'
+#' Only called from `bootstrap_mf_system()` below, once per fit, to fall back
+#' to `default_bootstrap_block_length()` above when
+#' `config$bootstrap$block_length` is `NULL`, or clamp a user-supplied value
+#' to `[1, n_rows]`.
+#'
 #' @keywords internal
 #' @noRd
 resolve_bootstrap_block_length <- function(n_rows, block_length) {
@@ -24,6 +31,18 @@ resolve_bootstrap_block_length <- function(n_rows, block_length) {
 
 
 #' Moving-block bootstrap indices
+#'
+#' Sample `ceiling(n_rows / block_length)` blocks, each starting at an
+#' independently drawn random position with wrap-around, and concatenate
+#' them up to `n_rows`. This is the stationary / moving-block bootstrap
+#' variant rather than a strict single-origin circular block bootstrap.
+#'
+#' Moving-block bootstrap indices
+#'
+#' Only called from `resample_mf_inputs()` in `utils-aggregation.R`, once per
+#' full-system bootstrap replication, to draw a resampled ordering of target
+#' periods. Not called from `bootstrap_mf_system()` below directly — that
+#' function calls `resample_mf_inputs()`, which calls this.
 #'
 #' Sample `ceiling(n_rows / block_length)` blocks, each starting at an
 #' independently drawn random position with wrap-around, and concatenate
@@ -50,6 +69,12 @@ moving_block_bootstrap_indices <- function(n_rows, block_length) {
 }
 
 
+#' Pull a model's coefficients into a fixed-length, fixed-name vector
+#'
+#' Only called from `bootstrap_mf_system()` below, once per bootstrap draw,
+#' so coefficient draws stay aligned by name across replications even when a
+#' resampled fit happens to drop or reorder a regressor.
+#'
 #' @keywords internal
 #' @noRd
 extract_model_coefficients <- function(model, coefficient_names) {
@@ -64,6 +89,12 @@ extract_model_coefficients <- function(model, coefficient_names) {
 }
 
 
+#' One simulated forecast path from a fitted target model
+#'
+#' Only called from `bootstrap_forecast_draws()` below, once per model, via
+#' `vapply()`. Thin wrapper around `simulate_target_model_draws()`
+#' (`utils-forecast.R`) with `n_paths = 1`.
+#'
 #' @keywords internal
 #' @noRd
 predictive_target_model_draw <- function(
@@ -86,6 +117,14 @@ predictive_target_model_draw <- function(
 }
 
 
+#' One forecast draw per full-system bootstrap model, at a new `xreg`
+#'
+#' Only called from `forecast.mf_model()` in `forecast.R`, when the caller
+#' supplies `xreg` explicitly and the fitted model used
+#' `full_system_bootstrap = TRUE`, so prediction intervals can be recomputed
+#' against the new regressors using the stored per-draw bootstrap models.
+#' Calls `predictive_target_model_draw()` above, once per model.
+#'
 #' @keywords internal
 #' @noRd
 bootstrap_forecast_draws <- function(
@@ -123,6 +162,13 @@ bootstrap_forecast_draws <- function(
 }
 
 
+#' Turn a matrix of forecast draws into SE and lower/upper interval matrices
+#'
+#' Only called from `forecast.mf_model()` in `forecast.R`, regardless of
+#' which uncertainty method produced `draws` (residual resampling, full
+#' bootstrap, or `NULL` for a point forecast), so the resulting `se`/`lower`/
+#' `upper` shape is uniform for downstream printing and plotting.
+#'
 #' @keywords internal
 #' @noRd
 bootstrap_interval_matrices <- function(draws, level, horizon) {
@@ -171,6 +217,17 @@ bootstrap_interval_matrices <- function(draws, level, horizon) {
 }
 
 
+#' Run the full-system target-period block bootstrap
+#'
+#' Only called from `compute_model_uncertainty()` in `mf_model.R`, when
+#' `se = TRUE` and `full_system_bootstrap = TRUE`. Refits the entire bridge
+#' model (via `resample_mf_inputs()` and `fit_mf_model()`, both in
+#' `utils-aggregation.R`/`mf_model.R`) on each resample, in contrast to the
+#' cheaper residual-resampling path in `build_prediction_uncertainty()`
+#' below, which reuses one fitted model. Calls
+#' `resolve_bootstrap_block_length()` above and
+#' `extract_model_coefficients()` above.
+#'
 #' @keywords internal
 #' @noRd
 bootstrap_mf_system <- function(
@@ -358,6 +415,15 @@ bootstrap_mf_system <- function(
 }
 
 
+#' Assemble prediction-interval metadata from bootstrap or residual draws
+#'
+#' Only called from `compute_model_uncertainty()` in `mf_model.R`, after
+#' `bootstrap_mf_system()` above has already run (if requested). Picks
+#' between the full-system bootstrap draws (from `bootstrap_mf_system()`)
+#' and freshly simulated residual-resampling draws (via
+#' `simulate_target_model_draws()` in `utils-forecast.R`), and normalizes
+#' both into the same `list(enabled, method, draws, N)` shape.
+#'
 #' @keywords internal
 #' @noRd
 build_prediction_uncertainty <- function(
