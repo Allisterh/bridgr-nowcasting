@@ -418,8 +418,8 @@ make_expalmon_joint_fixture <- function(
     x2_b[period_index] * basis_2b[day_index]
 
   true_weights <- list(
-    x1 = bridgr:::exp_almon(c(1.1, -0.9), 7),
-    x2 = bridgr:::exp_almon(c(-0.8, 0.7), 7)
+    x1 = bridgr:::parametric_weights("expalmon", c(1.1, -0.9), 7),
+    x2 = bridgr:::parametric_weights("expalmon", c(-0.8, 0.7), 7)
   )
 
   agg_x1 <- vapply(
@@ -506,7 +506,7 @@ make_expalmon_single_fixture <- function(
     coef_a[period_index] * basis_a[day_index] +
     coef_b[period_index] * basis_b[day_index]
 
-  true_weights <- bridgr:::exp_almon(c(-0.7, 0.9), 7)
+  true_weights <- bridgr:::parametric_weights("expalmon", c(-0.7, 0.9), 7)
   aggregated <- vapply(
     seq_len(total_periods),
     function(i) {

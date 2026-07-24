@@ -12,12 +12,12 @@ test_that("solver option normalization validates controls", {
   )
 
   expect_equal(defaults$reltol, 1e-8)
-  expect_equal(defaults$warn, TRUE)
+  expect_true(defaults$warn)
   expect_equal(options$method, "BFGS")
   expect_equal(options$maxiter, 10L)
   expect_equal(options$n_starts, 3L)
   expect_equal(options$trace, 1L)
-  expect_equal(options$warn, FALSE)
+  expect_false(options$warn)
   expect_equal(options$seed, 10L)
 
   expect_error(

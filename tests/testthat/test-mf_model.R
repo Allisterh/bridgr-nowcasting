@@ -413,9 +413,9 @@ test_that("summary.mf_model prints model information", {
   )
 
   output <- capture.output(summary(model))
-  expect_true(any(grepl("Mixed-frequency model summary", output)))
-  expect_true(any(grepl("Target series:", output)))
-  expect_true(any(grepl("Indicator summary:", output)))
+  expect_true(any(grepl("Mixed-frequency model summary", output, fixed = TRUE)))
+  expect_true(any(grepl("Target series:", output, fixed = TRUE)))
+  expect_true(any(grepl("Indicator summary:", output, fixed = TRUE)))
 })
 
 test_that("se = FALSE leaves bootstrap inactive", {
@@ -926,7 +926,7 @@ test_that("joint expalmon optimization improves the fit", {
       indicator_data <- subset(fixture$indic, id == indicator_id)
       periods <- rep(seq_len(nrow(fixture$target)), each = 7)
       objective <- function(parameters) {
-        weights <- bridgr:::exp_almon(parameters, 7)
+        weights <- bridgr:::parametric_weights("expalmon", parameters, 7)
         aggregated <- vapply(
           seq_len(nrow(fixture$target)),
           function(i) {
@@ -956,7 +956,7 @@ test_that("joint expalmon optimization improves the fit", {
         function(i) {
           idx <- ((i - 1) * 7 + 1):(i * 7)
           sum(
-            bridgr:::exp_almon(separate_weights$x1, 7) *
+            bridgr:::parametric_weights("expalmon", separate_weights$x1, 7) *
               subset(fixture$indic, id == "x1")$value[idx]
           )
         },
@@ -971,7 +971,7 @@ test_that("joint expalmon optimization improves the fit", {
         function(i) {
           idx <- ((i - 1) * 7 + 1):(i * 7)
           sum(
-            bridgr:::exp_almon(separate_weights$x2, 7) *
+            bridgr:::parametric_weights("expalmon", separate_weights$x2, 7) *
               subset(fixture$indic, id == "x2")$value[idx]
           )
         },
@@ -989,13 +989,11 @@ test_that("joint expalmon optimization improves the fit", {
 
   joint_loss <- bridgr:::compute_mf_loss(
     estimation_set = model$estimation_set,
-    target_name = model$target_name,
-    target_lags = model$target_lags
+    target_name = model$target_name
   )
   separate_loss <- bridgr:::compute_mf_loss(
     estimation_set = separate_set,
-    target_name = "target",
-    target_lags = 0
+    target_name = "target"
   )
 
   expect_lt(joint_loss, separate_loss)

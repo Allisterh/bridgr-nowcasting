@@ -916,6 +916,58 @@ compute_parametric_objective_gradient <- function(
 }
 
 
+#' Fit a bridge estimation set by OLS and report the RSS, or `NULL` on failure
+#'
+#' Shared by `evaluate_parametric_objective()` below (which additionally
+#' needs the fitted coefficients and residuals for its analytic gradient)
+#' and `compute_mf_loss()` further down (which only needs the RSS, and is
+#' also exercised directly from `tests/testthat/test-mf_model.R` as
+#' `bridgr:::compute_mf_loss()`). Returns `NULL` whenever `estimation_set` is
+#' empty, has no regressor columns, `stats::lm.fit()` errors, or the
+#' resulting RSS is non-finite — callers turn that into their own failure
+#' value (`Inf`, in both current callers).
+#'
+#' @keywords internal
+#' @noRd
+fit_estimation_set_rss <- function(estimation_set, target_name) {
+  if (nrow(estimation_set) == 0) {
+    return(NULL)
+  }
+
+  regressor_names <- setdiff(colnames(estimation_set), c("time", target_name))
+  if (length(regressor_names) == 0) {
+    return(NULL)
+  }
+
+  fit <- suppressWarnings(try(
+    stats::lm.fit(
+      x = cbind(
+        "(Intercept)" = 1,
+        as.matrix(estimation_set[, regressor_names, drop = FALSE])
+      ),
+      y = estimation_set[[target_name]]
+    ),
+    silent = TRUE
+  ))
+  if (inherits(fit, "try-error")) {
+    return(NULL)
+  }
+
+  residuals <- stats::residuals(fit)
+  rss <- sum(residuals^2, na.rm = TRUE)
+  if (!is.finite(rss)) {
+    return(NULL)
+  }
+
+  list(
+    fit = fit,
+    regressor_names = regressor_names,
+    residuals = residuals,
+    rss = rss
+  )
+}
+
+
 #' Objective value and gradient for one trial parametric parameter vector
 #'
 #' Only called from the `evaluate()` closure inside
@@ -923,8 +975,9 @@ compute_parametric_objective_gradient <- function(
 #' vector before passing `objective`/`gradient` wrapper closures to
 #' `run_parametric_optimizer()`. Rebuilds the full bridge estimation set
 #' (via `build_mf_estimation_set()` below) for the candidate weights, fits it
-#' by OLS, and reports the residual sum of squares plus its analytic
-#' gradient from `compute_parametric_objective_gradient()` above.
+#' by OLS via `fit_estimation_set_rss()` above, and reports the residual sum
+#' of squares plus its analytic gradient from
+#' `compute_parametric_objective_gradient()` above.
 #'
 #' @keywords internal
 #' @noRd
@@ -957,49 +1010,25 @@ evaluate_parametric_objective <- function(
     target_lags = target_lags
   )
 
-  if (nrow(estimation_set) == 0) {
+  fit_result <- fit_estimation_set_rss(estimation_set, target_name)
+  if (is.null(fit_result)) {
     return(list(value = Inf, gradient = rep(0, length(parameters))))
   }
 
-  regressor_names <- setdiff(colnames(estimation_set), c("time", target_name))
-  if (length(regressor_names) == 0) {
-    return(list(value = Inf, gradient = rep(0, length(parameters))))
-  }
-
-  fit <- suppressWarnings(try(
-    stats::lm.fit(
-      x = cbind(
-        "(Intercept)" = 1,
-        as.matrix(estimation_set[, regressor_names, drop = FALSE])
-      ),
-      y = estimation_set[[target_name]]
-    ),
-    silent = TRUE
-  ))
-  if (inherits(fit, "try-error")) {
-    return(list(value = Inf, gradient = rep(0, length(parameters))))
-  }
-
-  residuals <- stats::residuals(fit)
-  rss <- sum(residuals^2, na.rm = TRUE)
-  if (!is.finite(rss)) {
-    return(list(value = Inf, gradient = rep(0, length(parameters))))
-  }
-
-  coefficient_names <- c("(Intercept)", regressor_names)
+  coefficient_names <- c("(Intercept)", fit_result$regressor_names)
   coefficients <- stats::setNames(
-    as.numeric(fit$coefficients),
+    as.numeric(fit_result$fit$coefficients),
     coefficient_names
   )
 
   list(
-    value = rss,
+    value = fit_result$rss,
     gradient = compute_parametric_objective_gradient(
       estimation_set = estimation_set,
       target_name = target_name,
-      regressor_names = regressor_names,
+      regressor_names = fit_result$regressor_names,
       coefficients = coefficients,
-      residuals = residuals,
+      residuals = fit_result$residuals,
       parametric_specs = parametric_specs,
       parameter_blocks = parameter_blocks,
       indic_lags = indic_lags
@@ -1041,10 +1070,11 @@ parametric_polynomial_basis <- function(aggregator, parameters, n_weights) {
 #'
 #' The user-facing computation behind `"expalmon"`/`"beta"` aggregation:
 #' called from `aggregate_parametric_specs()` below (to build the aggregated
-#' series shown in `summary.mf_model()`'s parametric-weights block) and from
-#' the small `exp_almon()` wrapper below (kept for readability at call
-#' sites that only ever use the exponential-Almon case). Calls
-#' `parametric_polynomial_basis()` above for the `"expalmon"` case.
+#' series shown in `summary.mf_model()`'s parametric-weights block) and
+#' directly from `tests/testthat/` as `bridgr:::parametric_weights()` to
+#' compute exponential-Almon weights independently of the model-fitting
+#' path. Calls `parametric_polynomial_basis()` above for the `"expalmon"`
+#' case.
 #'
 #' @keywords internal
 #' @noRd
@@ -1383,17 +1413,18 @@ optimize_parametric_weights <- function(
     names(base_blocks) <- indicator_ids
   }
 
+  base_start_blocks <- lapply(
+    names(parametric_specs),
+    function(indicator_id) {
+      to_optimizer_scale(
+        parameters = base_blocks[[indicator_id]],
+        aggregator = parametric_specs[[indicator_id]]$aggregator
+      )
+    }
+  ) |>
+    stats::setNames(names(parametric_specs))
   base_start <- flatten_parameter_blocks(
-    parameter_blocks = lapply(
-      names(parametric_specs),
-      function(indicator_id) {
-        to_optimizer_scale(
-          parameters = base_blocks[[indicator_id]],
-          aggregator = parametric_specs[[indicator_id]]$aggregator
-        )
-      }
-    ) |>
-      stats::setNames(names(parametric_specs)),
+    parameter_blocks = base_start_blocks,
     specs = parametric_specs
   )
   bounds <- parametric_bounds(parametric_specs)
@@ -1554,23 +1585,6 @@ add_indicator_lags <- function(data, indic_lags) {
   }
 
   dplyr::bind_rows(out, dplyr::bind_rows(lagged))
-}
-
-
-#' Exponential Almon polynomial weights
-#'
-#' Not called elsewhere in the package (`parametric_weights()` above is used
-#' internally instead); kept as a readable, directly testable
-#' `bridgr:::exp_almon()` entry point exercised from `tests/testthat/`.
-#'
-#' @keywords internal
-#' @noRd
-exp_almon <- function(parameters, n_weights) {
-  parametric_weights(
-    aggregator = "expalmon",
-    parameters = parameters,
-    n_weights = n_weights
-  )
 }
 
 
@@ -1752,50 +1766,21 @@ rebuild_parametric_estimation_set <- function(
 #'
 #' Not called from elsewhere in the package's model-fitting code (the actual
 #' fit path uses `stats::lm()` via `fit_target_model()` in
-#' `utils-forecast.R`, and the parametric objective computes RSS inline in
-#' `evaluate_parametric_objective()` above). Kept as a small, directly
-#' testable `bridgr:::compute_mf_loss()` unit exercised from
+#' `utils-forecast.R`). Thin `Inf`-on-failure wrapper around
+#' `fit_estimation_set_rss()` above, kept as a small, directly testable
+#' `bridgr:::compute_mf_loss()` unit exercised from
 #' `tests/testthat/test-mf_model.R` to check joint-vs-separate parametric
 #' aggregation losses.
 #'
 #' @keywords internal
 #' @noRd
-compute_mf_loss <- function(
-  estimation_set,
-  target_name,
-  target_lags,
-  call = rlang::caller_env()
-) {
-  if (nrow(estimation_set) == 0) {
+compute_mf_loss <- function(estimation_set, target_name) {
+  fit_result <- fit_estimation_set_rss(estimation_set, target_name)
+  if (is.null(fit_result)) {
     return(Inf)
   }
 
-  regressor_names <- setdiff(colnames(estimation_set), c("time", target_name))
-  if (length(regressor_names) == 0) {
-    return(Inf)
-  }
-
-  fit <- suppressWarnings(try(
-    stats::lm.fit(
-      x = cbind(
-        "(Intercept)" = 1,
-        as.matrix(estimation_set[, regressor_names, drop = FALSE])
-      ),
-      y = estimation_set[[target_name]]
-    ),
-    silent = TRUE
-  ))
-
-  if (inherits(fit, "try-error")) {
-    return(Inf)
-  }
-
-  rss <- sum(stats::residuals(fit)^2, na.rm = TRUE)
-  if (!is.finite(rss)) {
-    return(Inf)
-  }
-
-  rss
+  fit_result$rss
 }
 
 
