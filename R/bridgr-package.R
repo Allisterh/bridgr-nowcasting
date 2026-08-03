@@ -30,9 +30,13 @@
 #' @importFrom stats nobs
 #' @importFrom utils tail
 #' @importFrom forecast forecast
+#' @importFrom ggplot2 autoplot
 NULL
 
 # Objects for re export
 
 #' @export
 forecast::forecast
+
+#' @export
+ggplot2::autoplot

@@ -26,8 +26,8 @@ returns the \code{se}, \code{lower}, and \code{upper} components, filled with \c
 \item{x}{A \code{"mf_model_forecast"} object returned by \code{\link[=forecast.mf_model]{forecast.mf_model()}}.}
 }
 \value{
-An object of class \code{"mf_model_forecast"} and \code{"forecast"} containing
-point forecasts, predictive uncertainty summaries, the
+An object of class \code{"mf_model_forecast"} containing point forecasts,
+predictive uncertainty summaries, the observed target history, the
 target-period regressors used for forecasting, and optional full-system
 bootstrap metadata.
 
@@ -46,6 +46,20 @@ interval widths can widen as the forecast horizon extends. The
 \code{uncertainty-and-scenarios} vignette includes one worked example that trims
 forecast rows by an acceptable prediction-interval width.
 }
+\section{Interoperability with the forecast package}{
+
+\code{"mf_model_forecast"} deliberately does \emph{not} inherit from the \code{forecast}
+package's \code{"forecast"} class. Target frequencies supported by \code{\link[=mf_model]{mf_model()}}
+include daily, weekly and sub-daily series, which \code{\link[stats:ts]{stats::ts()}} cannot
+represent without silently approximating the calendar, so an object that
+claimed \code{"forecast"} inheritance could not honour it for every model this
+package fits. Instead, \code{\link[=plot]{plot()}} and \code{\link[ggplot2:autoplot]{ggplot2::autoplot()}} methods are
+provided directly for \code{"mf_model_forecast"}, and \code{\link[=as.forecast]{as.forecast()}} converts to
+a genuine \code{"forecast"} object whenever the target frequency is regular
+enough to allow it, for use with functions such as
+\code{\link[forecast:reexports]{forecast::accuracy()}}.
+}
+
 \examples{
 gdp_growth <- tsbox::ts_pc(gdp)
 gdp_growth <- tsbox::ts_na_omit(gdp_growth)

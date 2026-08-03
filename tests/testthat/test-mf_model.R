@@ -377,7 +377,7 @@ test_that("forecast.mf_model uses stored regressors and accepts xreg", {
 
   default_forecast <- forecast(model)
   expect_s3_class(default_forecast, "mf_model_forecast")
-  expect_s3_class(default_forecast, "forecast")
+  expect_false(inherits(default_forecast, "forecast"))
   expect_equal(nrow(default_forecast$forecast_set), 2)
   expect_equal(length(default_forecast$se), 2)
   expect_false(default_forecast$bootstrap$enabled)
@@ -397,7 +397,7 @@ test_that("forecast.mf_model uses stored regressors and accepts xreg", {
   )
   scenario_forecast <- forecast(model, xreg = custom_xreg)
 
-  expect_s3_class(scenario_forecast, "forecast")
+  expect_s3_class(scenario_forecast, "mf_model_forecast")
   expect_equal(nrow(scenario_forecast$forecast_set), 2)
 })
 

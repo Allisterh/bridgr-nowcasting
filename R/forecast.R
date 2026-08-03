@@ -12,10 +12,22 @@
 #' returns the `se`, `lower`, and `upper` components, filled with `NA`.
 #' @param ... Reserved for future extensions.
 #'
-#' @return An object of class `"mf_model_forecast"` and `"forecast"` containing
-#' point forecasts, predictive uncertainty summaries, the
+#' @return An object of class `"mf_model_forecast"` containing point forecasts,
+#' predictive uncertainty summaries, the observed target history, the
 #' target-period regressors used for forecasting, and optional full-system
 #' bootstrap metadata.
+#'
+#' @section Interoperability with the forecast package:
+#' `"mf_model_forecast"` deliberately does *not* inherit from the `forecast`
+#' package's `"forecast"` class. Target frequencies supported by [mf_model()]
+#' include daily, weekly and sub-daily series, which [stats::ts()] cannot
+#' represent without silently approximating the calendar, so an object that
+#' claimed `"forecast"` inheritance could not honour it for every model this
+#' package fits. Instead, [plot()] and [ggplot2::autoplot()] methods are
+#' provided directly for `"mf_model_forecast"`, and [as.forecast()] converts to
+#' a genuine `"forecast"` object whenever the target frequency is regular
+#' enough to allow it, for use with functions such as
+#' [forecast::accuracy()].
 #'
 #' @details In recursive bridge forecasts, uncertainty typically increases with
 #' horizon because later forecast steps depend on forecasted rather than
@@ -145,9 +157,114 @@ forecast.mf_model <- function(
         block_length = object$bootstrap$block_length
       ),
       direct = all(object$indic_predict == "direct"),
-      model_class = class(object$model)[[1]]
+      model_class = class(object$model)[[1]],
+      method = "Mixed-frequency bridge model",
+      target_frequency = object$target_frequency,
+      history = dplyr::tibble(
+        time = object$target$time,
+        values = as.numeric(object$target$values)
+      ),
+      fitted = dplyr::tibble(
+        time = object$estimation_set$time,
+        values = as.numeric(stats::fitted(object$model))
+      ),
+      residual_values = as.numeric(stats::residuals(object$model))
     ),
-    class = c("mf_model_forecast", "forecast")
+    class = "mf_model_forecast"
+  )
+}
+
+#' Coerce a Mixed-Frequency Forecast to a forecast Object
+#'
+#' Converts a `"mf_model_forecast"` object into a genuine `"forecast"` object
+#' from the \pkg{forecast} package, so that functions such as
+#' [forecast::accuracy()] can be used on `bridgr` output.
+#'
+#' @details Conversion requires a target frequency that [stats::ts()] can
+#'   represent exactly, that is, a whole number of target periods per calendar
+#'   year. Annual, semi-annual, quarterly, bi-monthly and monthly targets
+#'   qualify; daily, weekly and sub-daily targets do not, and are rejected with
+#'   an informative error rather than silently approximated.
+#'
+#' @param object A `"mf_model_forecast"` object returned by
+#'   [forecast.mf_model()].
+#' @param ... Unused.
+#'
+#' @return An object of class `"forecast"`, with `mean`, `lower`, `upper`, `x`,
+#'   `fitted` and `residuals` stored as [stats::ts()] objects.
+#'
+#' @seealso [forecast.mf_model()] for the native forecast object, which
+#'   supports every target frequency.
+#'
+#' @examples
+#' gdp_growth <- tsbox::ts_pc(gdp)
+#' gdp_growth <- tsbox::ts_na_omit(gdp_growth)
+#' model <- mf_model(
+#'   target = gdp_growth,
+#'   indic = baro,
+#'   indic_predict = "auto.arima",
+#'   indic_aggregators = "mean",
+#'   h = 1
+#' )
+#'
+#' converted <- as.forecast(forecast(model))
+#' class(converted)
+#' @export
+as.forecast <- function(object, ...) { # nolint: object_name_linter.
+  UseMethod("as.forecast")
+}
+
+#' @rdname as.forecast
+#' @method as.forecast mf_model_forecast
+#' @export
+as.forecast.mf_model_forecast <- function(object, ...) {
+  frequency <- ts_frequency(object$target_frequency)
+
+  if (is.null(frequency)) {
+    rlang::abort(
+      paste0(
+        "Cannot convert to a `forecast` object: the target frequency (unit `",
+        object$target_frequency$unit[[1]],
+        "`, step ",
+        object$target_frequency$step[[1]],
+        ") has no exact `stats::ts()` representation. ",
+        "Use `plot()` or `autoplot()` on the `mf_model_forecast` object, ",
+        "which supports every target frequency."
+      )
+    )
+  }
+
+  as_target_ts <- function(values, time) {
+    stats::ts(
+      values,
+      start = ts_start(time, frequency),
+      frequency = frequency
+    )
+  }
+
+  interval_ts <- function(interval) {
+    converted <- stats::ts(
+      interval,
+      start = ts_start(object$time, frequency),
+      frequency = frequency
+    )
+    colnames(converted) <- colnames(interval)
+    converted
+  }
+
+  structure(
+    list(
+      method = object$method,
+      series = object$target_name,
+      mean = as_target_ts(as.numeric(object$mean), object$time),
+      level = object$level,
+      lower = interval_ts(object$lower),
+      upper = interval_ts(object$upper),
+      x = as_target_ts(object$history$values, object$history$time),
+      fitted = as_target_ts(object$fitted$values, object$fitted$time),
+      residuals = as_target_ts(object$residual_values, object$fitted$time)
+    ),
+    class = "forecast"
   )
 }
 

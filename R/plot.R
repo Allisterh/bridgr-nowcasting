@@ -226,7 +226,6 @@ plot.mf_model <- function(
   palette <- colors_bridgr()
   observed_color <- palette[[1]]
   fit_color <- palette[[2]]
-  forecast_color <- palette[[3]]
 
   if (type == "fit") {
     fitted_data <- dplyr::tibble(
@@ -271,29 +270,6 @@ plot.mf_model <- function(
   }
 
   forecast_object <- forecast::forecast(x, level = level)
-  forecast_data <- dplyr::tibble(
-    time = x$future_target_times,
-    value = as.numeric(forecast_object$mean)
-  )
-  show_interval <- !all(is.na(forecast_object$lower[, 1]))
-
-  if (show_interval) {
-    forecast_data <- forecast_data |>
-      dplyr::mutate(
-        lower = as.numeric(forecast_object$lower[, 1]),
-        upper = as.numeric(forecast_object$upper[, 1])
-      )
-  }
-
-  observed_plot_data <- dplyr::mutate(target_data, series = "Observed")
-  forecast_line_data <- dplyr::bind_rows(
-    dplyr::tibble(
-      time = utils::tail(target_data$time, 1),
-      value = utils::tail(target_data$value, 1),
-      series = "Forecast"
-    ),
-    dplyr::mutate(forecast_data, series = "Forecast")
-  )
 
   if (is.null(main)) {
     main <- "Mixed-Frequency Forecast"
@@ -304,6 +280,85 @@ plot.mf_model <- function(
   if (is.null(ylab)) {
     ylab <- x$target_name
   }
+
+  build_forecast_plot(
+    target_data = target_data,
+    forecast_data = forecast_interval_data(forecast_object, level_index = 1L),
+    level = level,
+    main = main,
+    xlab = xlab,
+    ylab = ylab,
+    ...
+  )
+}
+
+
+#' Extract point forecasts and one interval band as a plotting tibble
+#'
+#' Called from `plot.mf_model()` above and `plot.mf_model_forecast()` below, to
+#' reduce a `"mf_model_forecast"` object to the `time`/`value` (plus optional
+#' `lower`/`upper`) columns the shared plot builder expects. The interval
+#' columns are omitted entirely when the requested level is unavailable, which
+#' is how `build_forecast_plot()` below detects a point-only forecast.
+#'
+#' @keywords internal
+#' @noRd
+forecast_interval_data <- function(forecast_object, level_index = 1L) {
+  forecast_data <- dplyr::tibble(
+    time = forecast_object$time,
+    value = as.numeric(forecast_object$mean)
+  )
+
+  has_interval <- !is.null(forecast_object$lower) &&
+    ncol(forecast_object$lower) >= level_index &&
+    !all(is.na(forecast_object$lower[, level_index]))
+
+  if (!has_interval) {
+    return(forecast_data)
+  }
+
+  dplyr::mutate(
+    forecast_data,
+    lower = as.numeric(forecast_object$lower[, level_index]),
+    upper = as.numeric(forecast_object$upper[, level_index])
+  )
+}
+
+
+#' Assemble the shared observed-history-plus-forecast ggplot
+#'
+#' Called from `plot.mf_model()` above (via `type = "forecast"`) and
+#' `plot.mf_model_forecast()` below, so both entry points render an identical
+#' figure. Draws the interval as a ribbon for multi-step forecasts and as a
+#' vertical range for a single-step forecast, and omits it entirely when
+#' `forecast_data` carries no `lower`/`upper` columns.
+#'
+#' @keywords internal
+#' @noRd
+build_forecast_plot <- function(
+  target_data,
+  forecast_data,
+  level,
+  main,
+  xlab,
+  ylab,
+  ...
+) {
+  show_interval <- "lower" %in% names(forecast_data)
+
+  palette <- colors_bridgr()
+  observed_color <- palette[[1]]
+  forecast_color <- palette[[3]]
+
+  observed_plot_data <- dplyr::mutate(target_data, series = "Observed")
+  forecast_line_data <- dplyr::bind_rows(
+    dplyr::tibble(
+      time = utils::tail(target_data$time, 1),
+      value = utils::tail(target_data$value, 1),
+      series = "Forecast"
+    ),
+    dplyr::mutate(forecast_data, series = "Forecast")
+  )
 
   p <- ggplot2::ggplot() +
     ggplot2::geom_line(
@@ -387,4 +442,128 @@ plot.mf_model <- function(
   }
 
   p
+}
+
+
+#' Plot a Mixed-Frequency Forecast
+#'
+#' Visualize a `"mf_model_forecast"` object returned by [forecast.mf_model()],
+#' showing the observed target history together with the bridge forecast and,
+#' when available, a prediction interval.
+#'
+#' @param x A `"mf_model_forecast"` object returned by [forecast.mf_model()].
+#' @param object A `"mf_model_forecast"` object, for the
+#'   [ggplot2::autoplot()] method.
+#' @param level Prediction interval level to display. Must be one of the levels
+#'   the forecast was computed with. Defaults to the first available level.
+#' @param history_n Number of historical target observations to display.
+#'   Defaults to the most recent `50`. Set to `NULL` to show the full history.
+#' @param xlab,ylab,main Optional axis and title labels.
+#' @param ... Additional arguments passed to [theme_bridgr()].
+#'
+#' @return A ggplot2 object.
+#'
+#' @details These methods are provided directly for `"mf_model_forecast"`
+#'   rather than inherited from the \pkg{forecast} package, so that plotting
+#'   works for every target frequency [mf_model()] supports, including daily
+#'   and weekly targets that [stats::ts()] cannot represent. See
+#'   [as.forecast()] to convert to a `"forecast"` object where the frequency
+#'   allows it.
+#'
+#' @srrstats {TS5.6} Shows intervals when uncertainty is available.
+#' @srrstats {TS5.7} Combines observed history with forecast output.
+#'
+#' @examples
+#' gdp_growth <- tsbox::ts_pc(gdp)
+#' gdp_growth <- tsbox::ts_na_omit(gdp_growth)
+#' model <- mf_model(
+#'   target = gdp_growth,
+#'   indic = baro,
+#'   indic_predict = "auto.arima",
+#'   indic_aggregators = "mean",
+#'   h = 1
+#' )
+#'
+#' plot(forecast(model))
+#' @method plot mf_model_forecast
+#' @export
+plot.mf_model_forecast <- function(
+  x,
+  level = NULL,
+  history_n = 50,
+  xlab = NULL,
+  ylab = NULL,
+  main = NULL,
+  ...
+) {
+  level_index <- resolve_forecast_level_index(x, level)
+
+  target_data <- dplyr::tibble(
+    time = x$history$time,
+    value = as.numeric(x$history$values)
+  )
+  if (!is.null(history_n)) {
+    history_n <- as.integer(history_n)
+    target_data <- utils::tail(target_data, max(1L, history_n))
+  }
+
+  if (is.null(main)) {
+    main <- "Mixed-Frequency Forecast"
+  }
+  if (is.null(xlab)) {
+    xlab <- paste0("Time (", x$target_frequency$unit[[1]], ")")
+  }
+  if (is.null(ylab)) {
+    ylab <- x$target_name
+  }
+
+  build_forecast_plot(
+    target_data = target_data,
+    forecast_data = forecast_interval_data(x, level_index = level_index),
+    level = x$level[[level_index]],
+    main = main,
+    xlab = xlab,
+    ylab = ylab,
+    ...
+  )
+}
+
+
+#' @rdname plot.mf_model_forecast
+#' @method autoplot mf_model_forecast
+#' @export
+autoplot.mf_model_forecast <- function(object, ...) {
+  plot.mf_model_forecast(object, ...)
+}
+
+
+#' Match a requested interval level to a column of the forecast interval matrix
+#'
+#' Only called from `plot.mf_model_forecast()` above, to turn the user-facing
+#' `level` argument into a column index into `lower`/`upper`, erroring when the
+#' forecast was not computed at that level.
+#'
+#' @keywords internal
+#' @noRd
+resolve_forecast_level_index <- function(x, level) {
+  if (is.null(level)) {
+    return(1L)
+  }
+
+  if (length(level) != 1) {
+    rlang::abort("`level` must be a single interval level.")
+  }
+
+  index <- match(level, x$level)
+  if (is.na(index)) {
+    rlang::abort(
+      paste0(
+        "`level` must be one of the levels the forecast was computed with: ",
+        paste(x$level, collapse = ", "),
+        "."
+      )
+    )
+  }
+
+  index
 }

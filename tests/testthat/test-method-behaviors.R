@@ -497,7 +497,7 @@ test_that("a full pipeline example works end to end", {
   fcst <- forecast(model)
 
   expect_s3_class(model, "mf_model")
-  expect_s3_class(fcst, "forecast")
+  expect_s3_class(fcst, "mf_model_forecast")
   expect_equal(nrow(model$forecast_set), 1)
   expect_equal(nrow(fcst$forecast_set), 1)
   expect_true(all(c("indic", "indic_lag1") %in% model$regressor_names))

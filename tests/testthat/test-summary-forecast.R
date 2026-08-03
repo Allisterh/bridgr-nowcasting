@@ -149,7 +149,7 @@ test_that("forecast.mf_model accepts custom xreg for lm bridge models", {
 
   expect_s3_class(model$model, "lm")
   expect_s3_class(scenario_forecast, "mf_model_forecast")
-  expect_s3_class(scenario_forecast, "forecast")
+  expect_false(inherits(scenario_forecast, "forecast"))
   expect_equal(nrow(scenario_forecast$forecast_set), 2)
   expect_equal(length(scenario_forecast$se), 2)
   expect_equal(ncol(scenario_forecast$lower), 2)
