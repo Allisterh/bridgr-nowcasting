@@ -28,6 +28,9 @@
 #' @importFrom rlang %||%
 #' @importFrom lubridate %m+% %m-%
 #' @importFrom stats nobs
+#' @importFrom stats weights
+#' @importFrom stats model.frame
+#' @importFrom stats variable.names
 #' @importFrom utils tail
 #' @importFrom forecast forecast
 #' @importFrom ggplot2 autoplot

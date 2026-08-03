@@ -9,6 +9,8 @@
 \alias{vcov.mf_model}
 \alias{fitted.mf_model}
 \alias{residuals.mf_model}
+\alias{model.frame.mf_model}
+\alias{variable.names.mf_model}
 \alias{print.mf_model}
 \title{Accessor Methods for Mixed-Frequency Models}
 \usage{
@@ -26,10 +28,16 @@
 
 \method{residuals}{mf_model}(object, ...)
 
+\method{model.frame}{mf_model}(formula, which = c("estimation", "forecast"), ...)
+
+\method{variable.names}{mf_model}(object, which = c("all", "xreg", "target_lags"), ...)
+
 \method{print}{mf_model}(x, ...)
 }
 \arguments{
-\item{object, x}{A fitted \code{"mf_model"} object returned by \code{\link[=mf_model]{mf_model()}}.}
+\item{object, x, formula}{A fitted \code{"mf_model"} object returned by
+\code{\link[=mf_model]{mf_model()}}. The \code{formula} spelling is required by the
+\code{\link[stats:model.frame]{stats::model.frame()}} generic and carries the same meaning.}
 
 \item{...}{Unused.}
 
@@ -39,6 +47,11 @@ may be the HAC or Delta-HAC covariance when \code{se = TRUE}. Critical values
 use a t-distribution with residual degrees of freedom from the fitted
 target equation; this is conservative relative to asymptotic normal
 critical values but is common practice in applied econometrics.}
+
+\item{which}{For \code{model.frame()}, which modelling frame to return,
+\code{"estimation"} (default) or \code{"forecast"}. For \code{variable.names()}, which
+group of regressor names to return, \code{"all"} (default), \code{"xreg"} or
+\code{"target_lags"}.}
 }
 \value{
 The requested model summary, usually delegated from the stored target
@@ -53,6 +66,18 @@ Access standard model summaries from a fitted \code{\link[=mf_model]{mf_model()}
 \code{residuals.mf_model()} returns target-equation residuals on the same
 standardized scale as the fitted target series, so they can be passed
 directly to downstream residual diagnostics.
+
+\code{model.frame.mf_model()} returns the aligned modelling data. Use
+\code{which = "estimation"} for the in-sample bridge-equation data, and
+\code{which = "forecast"} for the future target-period regressor path the
+forecast is produced from. The latter is the frame to modify and pass back
+as \code{xreg} when constructing scenarios.
+
+\code{variable.names.mf_model()} returns the names of the
+bridge-equation regressors. \code{which = "xreg"} returns the non-target-lag
+regressors, which are exactly the series a custom \code{xreg} must supply when
+forecasting a scenario, and pairs with
+\code{model.frame(object, which = "forecast")}.
 }
 \examples{
 gdp_growth <- tsbox::ts_pc(gdp)
