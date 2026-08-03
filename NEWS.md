@@ -1,4 +1,76 @@
-# bridgr (development version)
+# bridgr 0.2.0
+
+## Breaking changes
+
+* `summary()` on an `"mf_model"` object now returns a `"summary.mf_model"`
+  object instead of printing and returning the model unchanged, following the
+  convention of `summary.lm()`. The printed report is unchanged and is now
+  produced by the new `print.summary.mf_model()` method. The returned object
+  exposes the summary quantities programmatically, including a standard
+  `coefficients` matrix with `Estimate`, `Std. Error`, `t value` and
+  `Pr(>|t|)` columns, so `coef(summary(model))` works as it does for `lm()`.
+  Standard errors respect the HAC, Delta-HAC or bootstrap covariance when the
+  model was fitted with `se = TRUE`.
+
+* Objects returned by `forecast()` no longer inherit from the `forecast`
+  package's `"forecast"` class; they are now plain `"mf_model_forecast"`
+  objects. The previous inheritance was not honoured -- `plot()` and
+  `autoplot()` failed on the result, and `accuracy()` returned misleading
+  values -- because target frequencies such as daily and weekly cannot be
+  represented by `stats::ts()`, which those methods require. `plot()` and
+  `ggplot2::autoplot()` methods are now provided directly for
+  `"mf_model_forecast"` and work at every supported target frequency, and the
+  new `as.forecast()` converts to a genuine `"forecast"` object for use with
+  functions such as `forecast::accuracy()` whenever the target frequency has
+  an exact `ts` representation (annual, semi-annual, quarterly, bi-monthly or
+  monthly).
+
+## New features
+
+* New accessor methods replace reaching into the fitted object's internal
+  structure: `weights()` returns aggregation weights (estimated parametric
+  weights or user-supplied numeric weights), `aggregation_parameters()`
+  returns the estimated parameters of parametric aggregation schemes,
+  `indicators()` returns the indicator names, `variable.names()` returns the
+  bridge-equation regressor names, and `model.frame()` returns the estimation
+  data or the forecast regressor path. `weights()` and
+  `aggregation_parameters()` accept an indicator name or position. The
+  vignettes now use these accessors throughout.
+
+* `variable.names()` replaces `model$xreg_names` and `model$regressor_names`.
+  `variable.names(model, which = "xreg")` returns the non-target-lag
+  regressors, which are exactly the series a custom `xreg` must supply when
+  forecasting a scenario, and so pairs with
+  `model.frame(model, which = "forecast")`.
+
+* `weights()` now also returns the fixed weight vectors implied by the
+  deterministic aggregators, rather than `NULL`: `"mean"` gives `1/M`,
+  `"last"` gives a one in the final slot, and `"sum"` gives ones. The
+  accessor therefore reports the weights actually applied for every
+  aggregator except `"unrestricted"`, which estimates one coefficient per
+  within-period observation and so implies no weight vector.
+
+## Performance
+
+* The full-system block bootstrap is substantially faster. Calendar shifts
+  were applied one step at a time and recomputed for every observation, which
+  made timezone normalisation inside `lubridate::%m+%` the dominant cost of a
+  bootstrap resample. Shifts are now vectorised and computed once per distinct
+  shift amount. On a quarterly target with a monthly indicator, a 50-draw
+  full-system bootstrap runs about 3.6 times faster, with bit-identical
+  coefficients and forecasts.
+
+* Month, quarter and year shifts of `Date` vectors no longer go through
+  `lubridate::%m+%`, which routes through `as.POSIXlt()` and `force_tz()`.
+  Profiling showed that timezone coercion alone accounted for roughly 44% of
+  the remaining self time in a full-system bootstrap. These shifts now use
+  direct integer calendar arithmetic, preserving the end-of-month rollback
+  semantics of `%m+%` exactly; `POSIXct` inputs, missing values and
+  fractional shifts still use `%m+%`. The isolated shift is about 10 times
+  faster and a 50-draw full-system bootstrap about 1.3 times faster, with
+  bit-identical coefficients, covariances, forecasts and intervals.
+
+## Bug fixes
 
 * Fix ragged-edge completion for sub-monthly indicators at multi-step
   horizons (`h > 1`). Completion previously filled future target periods with
