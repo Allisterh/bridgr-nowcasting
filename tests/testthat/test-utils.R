@@ -332,7 +332,9 @@ test_that("the Date fast path matches `%m+%` exactly", {
 
 test_that("non-Date and missing inputs fall back to `%m+%`", {
   expect_false(bridgr:::fast_month_shift_applies(as.POSIXct("2020-01-31"), 1))
-  expect_false(bridgr:::fast_month_shift_applies(as.Date(c("2020-01-31", NA)), 1))
+  expect_false(
+    bridgr:::fast_month_shift_applies(as.Date(c("2020-01-31", NA)), 1)
+  )
   expect_false(bridgr:::fast_month_shift_applies(as.Date("2020-01-31"), NA))
   expect_false(bridgr:::fast_month_shift_applies(as.Date("2020-01-31"), 1.5))
   expect_true(bridgr:::fast_month_shift_applies(as.Date("2020-01-31"), -3))

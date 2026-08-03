@@ -71,7 +71,7 @@ test_that("weights() returns estimated parametric aggregation weights", {
   expect_named(aggregation_parameters(model), indicator_id)
 })
 
-test_that("weights() returns the fixed weights implied by deterministic rules", {
+test_that("weights() returns the weights implied by deterministic rules", {
   indic <- make_monthly_indicator(n = 36)
   target <- make_quarter_target(indic, n_quarters = 12)
 
