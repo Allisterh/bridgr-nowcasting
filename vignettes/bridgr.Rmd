@@ -106,12 +106,12 @@ The default `"mean"` aggregator is the classic bridge-model setup: each
 monthly block is completed first, then averaged to the quarterly frequency
 before the target equation is estimated.
 
-The fitted object stores the aligned data that went into estimation and the
+`model.frame()` returns the aligned data that went into estimation, and the
 future target-period regressor path used for forecasting.
 
 ```{r aligned-data}
-tail(bridge_model$estimation_set)
-bridge_model$forecast_set
+tail(model.frame(bridge_model))
+model.frame(bridge_model, which = "forecast")
 ```
 
 ## Lags in the target equation
@@ -184,7 +184,7 @@ multi_model <- mf_model(
   h = 1
 )
 
-multi_model$regressor_names
+variable.names(multi_model)
 forecast(multi_model)
 ```
 
