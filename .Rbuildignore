@@ -1,6 +1,9 @@
 ^renv$
 ^renv\.lock$
 ^\.codex($|/)
+^\.claude($|/)
+^\.Rhistory$
+^\.DS_Store$
 ^\.lintr$
 ^\.github($|/)
 ^bridgr\.Rcheck$
