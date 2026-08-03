@@ -12,10 +12,37 @@
 \item{...}{Unused.}
 }
 \value{
-\code{object}, invisibly.
+An object of class \code{"summary.mf_model"}, a list with components:
+\describe{
+\item{\code{target_name}, \code{target_frequency}, \code{h}, \code{nobs}}{Target series name,
+inferred target frequency unit, forecast horizon, and number of
+estimation rows.}
+\item{\code{regressor_names}}{Character vector of bridge-equation regressors.}
+\item{\code{coefficients}}{Numeric matrix with columns \code{"Estimate"},
+\code{"Std. Error"}, \code{"t value"} and \code{"Pr(>|t|)"}. Standard errors come from
+\code{\link[=vcov.mf_model]{vcov.mf_model()}}, so they are the HAC, Delta-HAC or bootstrap standard
+errors when the model was fitted with \code{se = TRUE}.}
+\item{\code{coefficient_method}}{Method used for the coefficient standard
+errors, or \code{NULL} when the model was fitted without uncertainty.}
+\item{\code{r.squared}, \code{adj.r.squared}, \code{sigma}, \code{df.residual}}{Fit
+measures for the target equation.}
+\item{\code{indicators}}{Data frame of per-indicator frequency, completion
+method and aggregation scheme, one row per indicator.}
+\item{\code{custom_weights}}{Named list of user-supplied numeric aggregation
+weights, empty when none were used.}
+\item{\code{parametric_weights}, \code{parametric_parameters}}{Named lists of
+estimated parametric aggregation weights and their underlying
+parameters, empty when no parametric aggregator was used.}
+\item{\code{uncertainty}, \code{bootstrap}, \code{optimization}}{Uncertainty settings,
+bootstrap diagnostics, and joint parametric-optimization diagnostics.}
+}
 }
 \description{
-Summarize a Mixed-Frequency Model
+Computes the summary quantities for a fitted \code{\link[=mf_model]{mf_model()}} object and returns
+them as a \code{"summary.mf_model"} object. Following the convention of
+\code{\link[=summary.lm]{summary.lm()}}, the summary is a data object in its own right: the report is
+rendered by \code{\link[=print.summary.mf_model]{print.summary.mf_model()}} rather than by \code{summary()} itself, so
+the individual quantities can be extracted programmatically.
 }
 \examples{
 gdp_growth <- tsbox::ts_pc(gdp)
@@ -28,5 +55,13 @@ model <- mf_model(
   h = 1
 )
 
-summary(model)
+model_summary <- summary(model)
+model_summary
+
+# The coefficient matrix is available programmatically, as for `lm()`.
+coef(model_summary)
+}
+\seealso{
+\code{\link[=coef.mf_model]{coef.mf_model()}}, \code{\link[=confint.mf_model]{confint.mf_model()}} and \code{\link[=vcov.mf_model]{vcov.mf_model()}} for
+extracting individual quantities directly from the fitted model.
 }
