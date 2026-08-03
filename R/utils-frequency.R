@@ -399,12 +399,171 @@ unit_distance <- function(times, origin, unit) {
 }
 
 
-#' Shift one timestamp forward (or backward) by `n` units of `unit`
+#' The `stats::ts()` frequency implied by a target frequency, or `NULL`
 #'
-#' Only called from `shift_time_vec()` below, once per shift amount, via
-#' `lapply()`. Kept as a separate scalar function (rather than vectorizing
-#' `n` directly) because `%m+%` and `lubridate::period()` need a
-#' single-length step to shift months/quarters/years consistently.
+#' Only called from `as.forecast.mf_model_forecast()` (`forecast.R`), to decide
+#' whether a fitted target frequency can be represented as a regular
+#' `stats::ts()` at all. A `ts` needs a whole number of periods per year, so
+#' only the calendar-month ladder (`month`/`quarter`/`year`, with a step that
+#' divides twelve months evenly) qualifies. Day, week and sub-daily targets
+#' return `NULL` because `ts` cannot represent them without silently
+#' approximating the calendar.
+#'
+#' @keywords internal
+#' @noRd
+ts_frequency <- function(target_meta) {
+  unit <- target_meta$unit[[1]]
+  step <- target_meta$step[[1]]
+
+  if (!is.finite(step) || step <= 0) {
+    return(NULL)
+  }
+
+  months_per_period <- switch(
+    unit,
+    "year" = 12 * step,
+    "quarter" = 3 * step,
+    "month" = step,
+    NULL
+  )
+  if (is.null(months_per_period)) {
+    return(NULL)
+  }
+
+  frequency <- 12 / months_per_period
+  if (!isTRUE(all.equal(frequency, round(frequency))) || frequency < 1) {
+    return(NULL)
+  }
+
+  as.integer(round(frequency))
+}
+
+
+#' The `stats::ts()` `start` vector for a timestamp at a given ts frequency
+#'
+#' Only called from `as.forecast.mf_model_forecast()` (`forecast.R`), once per
+#' series being converted, after `ts_frequency()` above has confirmed the
+#' frequency is representable. Returns `c(year, period_within_year)`.
+#'
+#' @keywords internal
+#' @noRd
+ts_start <- function(time, frequency) {
+  months_per_period <- 12 / frequency
+  month_index <- lubridate::month(time[[1]]) - 1
+
+  c(
+    lubridate::year(time[[1]]),
+    floor(month_index / months_per_period) + 1
+  )
+}
+
+
+#' Convert days since 1970-01-01 to civil year/month/day, and back
+#'
+#' Only called from `add_months_date()` below. These are the standard
+#' civil-calendar conversions (Howard Hinnant's `civil_from_days` and
+#' `days_from_civil`), written as vectorized integer arithmetic. They exist
+#' so month-based shifts of `Date` vectors avoid the datetime machinery in
+#' `%m+%`, whose timezone normalization dominated the cost of a bootstrap
+#' resample; see `add_months_date()` below.
+#'
+#' @keywords internal
+#' @noRd
+civil_from_days <- function(z) {
+  z <- z + 719468
+  era <- z %/% 146097
+  doe <- z - era * 146097
+  yoe <- (doe - doe %/% 1460 + doe %/% 36524 - doe %/% 146096) %/% 365
+  y <- yoe + era * 400
+  doy <- doe - (365 * yoe + yoe %/% 4 - yoe %/% 100)
+  mp <- (5 * doy + 2) %/% 153
+  d <- doy - (153 * mp + 2) %/% 5 + 1
+  m <- mp + ifelse(mp < 10, 3, -9)
+
+  list(year = y + (m <= 2), month = m, day = d)
+}
+
+
+#' @keywords internal
+#' @noRd
+days_from_civil <- function(y, m, d) {
+  y <- y - (m <= 2)
+  era <- y %/% 400
+  yoe <- y - era * 400
+  doy <- (153 * (m + ifelse(m > 2, -3, 9)) + 2) %/% 5 + d - 1
+  doe <- yoe * 365 + yoe %/% 4 - yoe %/% 100 + doy
+
+  era * 146097 + doe - 719468
+}
+
+
+#' Is the `add_months_date()` fast path safe for these inputs?
+#'
+#' Only called from `shift_time()` below. The fast path handles plain `Date`
+#' vectors shifted by whole numbers of months. Anything else --- `POSIXct`
+#' timestamps, missing values, fractional or non-finite shifts --- falls back
+#' to `%m+%`, which remains the reference implementation.
+#'
+#' @keywords internal
+#' @noRd
+fast_month_shift_applies <- function(time, months) {
+  inherits(time, "Date") &&
+    !anyNA(time) &&
+    !anyNA(months) &&
+    all(is.finite(unclass(time))) &&
+    all(is.finite(months)) &&
+    all(months == trunc(months))
+}
+
+
+#' Add `n` whole months to a `Date` vector, with end-of-month rollback
+#'
+#' Only called from `shift_time()` below, as the fast path for month, quarter
+#' and year shifts of `Date` vectors. Reproduces `%m+%` semantics exactly: the
+#' day of month is clamped to the last valid day of the target month, so
+#' 2020-01-31 plus one month is 2020-02-29, not 2020-03-02. Arguments are
+#' recycled to a common length, as `%m+%` does.
+#'
+#' `%m+%` routes `Date` arithmetic through `as.POSIXlt()` and `force_tz()`,
+#' which profiling showed to be the single largest cost in a full-system
+#' bootstrap. This path is pure integer arithmetic and allocates no datetime
+#' objects.
+#'
+#' @keywords internal
+#' @noRd
+add_months_date <- function(time, n) {
+  len <- max(length(time), length(n))
+  if (len == 0) {
+    return(time[0])
+  }
+
+  days <- rep_len(as.numeric(unclass(time)), len)
+  months <- rep_len(as.numeric(n), len)
+
+  civil <- civil_from_days(days)
+  total_month <- civil$year * 12 + (civil$month - 1) + months
+  year <- total_month %/% 12
+  month <- total_month %% 12 + 1
+
+  leap <- (year %% 4 == 0 & year %% 100 != 0) | year %% 400 == 0
+  month_length <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)[month]
+  month_length[month == 2 & leap] <- 29
+
+  structure(
+    days_from_civil(year, month, pmin(civil$day, month_length)),
+    class = "Date"
+  )
+}
+
+
+#' Shift a timestamp forward (or backward) by `n` units of `unit`
+#'
+#' Called from `shift_time_vec()` below. `n` may be a vector, in which case a
+#' shifted timestamp is returned for each element; `lubridate::period()` and
+#' `%m+%` both vectorize over the shift amount, so month/quarter/year steps
+#' keep their end-of-month rollback semantics either way. Month-based shifts
+#' of `Date` vectors take the `add_months_date()` fast path above, which is
+#' equivalent to `%m+%` but avoids its timezone normalization.
 #'
 #' @keywords internal
 #' @noRd
@@ -424,14 +583,16 @@ shift_time <- function(time, n, unit) {
   if (unit == "week") {
     return(time + lubridate::weeks(n))
   }
-  if (unit == "month") {
-    return(time %m+% lubridate::period(num = n, units = "month"))
-  }
-  if (unit == "quarter") {
-    return(time %m+% lubridate::period(num = 3 * n, units = "month"))
-  }
-  if (unit == "year") {
-    return(time %m+% lubridate::period(num = n, units = "year"))
+  # Note: the component constructors (`period(month = n)`) are used rather than
+  # `period(num = n, units = "month")`, because the latter treats `num` as
+  # parallel to `units` and collapses a vector into a single summed period.
+  month_step <- switch(unit, "month" = 1, "quarter" = 3, "year" = 12, NULL)
+  if (!is.null(month_step)) {
+    months <- month_step * n
+    if (fast_month_shift_applies(time, months)) {
+      return(add_months_date(time, months))
+    }
+    return(time %m+% lubridate::period(month = months))
   }
 
   rlang::abort(
@@ -452,11 +613,18 @@ shift_time <- function(time, n, unit) {
 #' @keywords internal
 #' @noRd
 shift_time_vec <- function(time, n, unit) {
-  shifted <- lapply(
-    as.list(n),
-    function(step_count) shift_time(time = time, n = step_count, unit = unit)
-  )
-  do.call(c, shifted)
+  if (length(n) == 0) {
+    return(time[0])
+  }
+
+  # `n` is frequently highly repetitive -- `compute_target_periods()` above
+  # shifts the anchor by the same period index once per observation within a
+  # target period. Shifting only the distinct amounts and mapping back keeps
+  # the number of calendar operations proportional to the number of target
+  # periods rather than the number of observations, which dominates the cost
+  # of every bootstrap resample.
+  distinct_n <- unique(n)
+  shift_time(time = time, n = distinct_n, unit = unit)[match(n, distinct_n)]
 }
 
 

@@ -298,6 +298,52 @@ test_that("shift_time preserves calendar-end behavior across larger units", {
   )
 })
 
+test_that("the Date fast path matches `%m+%` exactly", {
+  # Month-based shifts of Date vectors bypass `%m+%` for speed, so pin the
+  # fast path to the reference implementation across leap years, month ends,
+  # negative shifts and pre-epoch dates.
+  dates <- c(
+    seq(as.Date("1968-01-01"), as.Date("2041-12-01"), by = "month"),
+    as.Date(c(
+      "2020-01-31", "2020-02-29", "2000-02-29", "1900-03-01",
+      "2019-12-31", "1969-12-31", "2023-08-31"
+    ))
+  )
+
+  for (shift in c(-400L, -13L, -1L, 0L, 1L, 7L, 12L, 400L)) {
+    expect_identical(
+      bridgr:::add_months_date(dates, shift),
+      dates %m+% lubridate::period(month = shift),
+      info = paste("shift =", shift)
+    )
+  }
+
+  # Vector shifts, and a scalar origin recycled against them.
+  shifts <- rep_len(c(-30L, -1L, 0L, 5L, 61L), length(dates))
+  expect_identical(
+    bridgr:::add_months_date(dates, shifts),
+    dates %m+% lubridate::period(month = shifts)
+  )
+  expect_identical(
+    bridgr:::add_months_date(as.Date("2020-01-31"), shifts),
+    as.Date("2020-01-31") %m+% lubridate::period(month = shifts)
+  )
+})
+
+test_that("non-Date and missing inputs fall back to `%m+%`", {
+  expect_false(bridgr:::fast_month_shift_applies(as.POSIXct("2020-01-31"), 1))
+  expect_false(bridgr:::fast_month_shift_applies(as.Date(c("2020-01-31", NA)), 1))
+  expect_false(bridgr:::fast_month_shift_applies(as.Date("2020-01-31"), NA))
+  expect_false(bridgr:::fast_month_shift_applies(as.Date("2020-01-31"), 1.5))
+  expect_true(bridgr:::fast_month_shift_applies(as.Date("2020-01-31"), -3))
+
+  # The fallback still returns the documented calendar-end behavior.
+  expect_equal(
+    bridgr:::shift_time(as.Date(c("2020-01-31", NA)), 1, "month"),
+    as.Date(c("2020-02-29", NA))
+  )
+})
+
 test_that("beta parameters are mapped to and from optimizer scale positively", {
   expect_equal(
     bridgr:::to_optimizer_scale(c(2, 3), "beta"),
