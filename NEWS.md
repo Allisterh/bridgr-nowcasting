@@ -1,6 +1,19 @@
-# bridgr 0.2.0
+# bridgr 1.0.0
+
+First stable release. Since 0.1.2 the model-construction entry point and the
+fitted-model class have been renamed, the aggregation library and the
+uncertainty machinery have been substantially extended, and two methods that
+did not honour their documented contract have been corrected. The public
+interface centred on `mf_model()`, `forecast()`, `summary()` and `plot()` is
+now considered stable, and future breaking changes will go through a
+deprecation cycle.
 
 ## Breaking changes
+
+* Rename the main model-construction entry point to `mf_model()`, and rename
+  the fitted-model class and its S3 methods from `bridge` to `mf_model`.
+  `bridge()` remains as a deprecated compatibility wrapper that warns and
+  forwards to `mf_model()`, so existing code keeps working.
 
 * `summary()` on an `"mf_model"` object now returns a `"summary.mf_model"`
   object instead of printing and returning the model unchanged, following the
@@ -24,6 +37,8 @@
   functions such as `forecast::accuracy()` whenever the target frequency has
   an exact `ts` representation (annual, semi-annual, quarterly, bi-monthly or
   monthly).
+
+* Remove the `legendre` parametric aggregation option.
 
 ## New features
 
@@ -49,60 +64,6 @@
   accessor therefore reports the weights actually applied for every
   aggregator except `"unrestricted"`, which estimates one coefficient per
   within-period observation and so implies no weight vector.
-
-## Performance
-
-* The full-system block bootstrap is substantially faster. Calendar shifts
-  were applied one step at a time and recomputed for every observation, which
-  made timezone normalisation inside `lubridate::%m+%` the dominant cost of a
-  bootstrap resample. Shifts are now vectorised and computed once per distinct
-  shift amount. On a quarterly target with a monthly indicator, a 50-draw
-  full-system bootstrap runs about 3.6 times faster, with bit-identical
-  coefficients and forecasts.
-
-* Month, quarter and year shifts of `Date` vectors no longer go through
-  `lubridate::%m+%`, which routes through `as.POSIXlt()` and `force_tz()`.
-  Profiling showed that timezone coercion alone accounted for roughly 44% of
-  the remaining self time in a full-system bootstrap. These shifts now use
-  direct integer calendar arithmetic, preserving the end-of-month rollback
-  semantics of `%m+%` exactly; `POSIXct` inputs, missing values and
-  fractional shifts still use `%m+%`. The isolated shift is about 10 times
-  faster and a 50-draw full-system bootstrap about 1.3 times faster, with
-  bit-identical coefficients, covariances, forecasts and intervals.
-
-## Bug fixes
-
-* Fix ragged-edge completion for sub-monthly indicators at multi-step
-  horizons (`h > 1`). Completion previously filled future target periods with
-  a fixed count of high-frequency grid steps, but calendar periods can hold
-  more observations than the regular ladder implies (a quarter has 13 weekly
-  or up to 92 daily observations versus the 12 or 84 the ladder expects), so
-  early future periods absorbed the surplus and later ones failed block
-  validation. Completion is now period-aware: candidate grid times are
-  assigned to their calendar periods and each future period receives exactly
-  the observations it still needs.
-
-* Ignore indicator observations dated beyond the last forecast period during
-  alignment. Such observations cannot enter any regressor and previously made
-  block validation fail on a partially observed beyond-horizon period, for
-  example when a weekly series extends past the target quarter of an `h = 1`
-  nowcast.
-
-* Make direct alignment (`indic_predict = "direct"`) period-aware. Blocks of
-  high-frequency observations were strided backward from the end of the
-  sample and paired with target periods by position, so on calendar ladders
-  (13-Saturday quarters on a 12-slot weekly ladder) historical blocks drifted
-  out of their calendar periods -- about one week per quarter, compounding
-  over the sample -- and the stride count could overrun the number of target
-  periods and fail outright. Each target period that overlaps the observed
-  sample is now anchored at the newest observation's position within its own
-  period (a MIDAS-with-leads alignment), which reproduces fixed strides
-  exactly on regular ladders; periods beyond the observed sample keep the
-  documented lead convention.
-
-* Rename the main model-construction entry point to `mf_model()`, rename the
-  fitted-model class and S3 methods to `mf_model`, and keep `bridge()` as a
-  deprecated compatibility wrapper.
 
 * Extend `mf_model()` beyond classic bridge aggregation:
   - add unrestricted mixed-frequency regressors via
@@ -148,10 +109,58 @@
     uncertainty / scenario analysis
   - refresh the README examples and package references
 
-* Remove the `legendre` parametric aggregation option.
+## Performance
+
+* The full-system block bootstrap is substantially faster. Calendar shifts
+  were applied one step at a time and recomputed for every observation, which
+  made timezone normalisation inside `lubridate::%m+%` the dominant cost of a
+  bootstrap resample. Shifts are now vectorised and computed once per distinct
+  shift amount. On a quarterly target with a monthly indicator, a 50-draw
+  full-system bootstrap runs about 3.6 times faster, with bit-identical
+  coefficients and forecasts.
+
+* Month, quarter and year shifts of `Date` vectors no longer go through
+  `lubridate::%m+%`, which routes through `as.POSIXlt()` and `force_tz()`.
+  Profiling showed that timezone coercion alone accounted for roughly 44% of
+  the remaining self time in a full-system bootstrap. These shifts now use
+  direct integer calendar arithmetic, preserving the end-of-month rollback
+  semantics of `%m+%` exactly; `POSIXct` inputs, missing values and
+  fractional shifts still use `%m+%`. The isolated shift is about 10 times
+  faster and a 50-draw full-system bootstrap about 1.3 times faster, with
+  bit-identical coefficients, covariances, forecasts and intervals.
 
 * Use analytic gradients for `expalmon` optimization and improve the
   normalized beta polynomial gradient used in the optimizer.
+
+## Bug fixes
+
+* Fix ragged-edge completion for sub-monthly indicators at multi-step
+  horizons (`h > 1`). Completion previously filled future target periods with
+  a fixed count of high-frequency grid steps, but calendar periods can hold
+  more observations than the regular ladder implies (a quarter has 13 weekly
+  or up to 92 daily observations versus the 12 or 84 the ladder expects), so
+  early future periods absorbed the surplus and later ones failed block
+  validation. Completion is now period-aware: candidate grid times are
+  assigned to their calendar periods and each future period receives exactly
+  the observations it still needs.
+
+* Ignore indicator observations dated beyond the last forecast period during
+  alignment. Such observations cannot enter any regressor and previously made
+  block validation fail on a partially observed beyond-horizon period, for
+  example when a weekly series extends past the target quarter of an `h = 1`
+  nowcast.
+
+* Make direct alignment (`indic_predict = "direct"`) period-aware. Blocks of
+  high-frequency observations were strided backward from the end of the
+  sample and paired with target periods by position, so on calendar ladders
+  (13-Saturday quarters on a 12-slot weekly ladder) historical blocks drifted
+  out of their calendar periods -- about one week per quarter, compounding
+  over the sample -- and the stride count could overrun the number of target
+  periods and fail outright. Each target period that overlaps the observed
+  sample is now anchored at the newest observation's position within its own
+  period (a MIDAS-with-leads alignment), which reproduces fixed strides
+  exactly on regular ladders; periods beyond the observed sample keep the
+  documented lead convention.
 
 # bridgr 0.1.2
 

@@ -15,3 +15,7 @@ inst/doc
 /paper-*
 /doc/
 /Meta/
+
+# build artifacts
+*.tar.gz
+*.Rcheck/

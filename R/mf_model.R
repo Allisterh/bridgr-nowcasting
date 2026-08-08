@@ -343,7 +343,7 @@ mf_model <- function(
 #' @rdname mf_model
 #' @export
 bridge <- function(...) {
-  lifecycle::deprecate_warn("0.1.3", "bridge()", "mf_model()")
+  lifecycle::deprecate_warn("1.0.0", "bridge()", "mf_model()")
   mf_model(...)
 }
 

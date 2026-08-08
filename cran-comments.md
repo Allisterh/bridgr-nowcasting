@@ -16,9 +16,14 @@ All three notes are local to the check machine (macOS, R 4.4.0):
 
 ## Submission Summary
 
-This is a minor release for 'bridgr'. It contains two user-visible breaking
-changes, both correcting methods that did not honour their documented
-contract:
+This is the first stable release of 'bridgr', following a substantial API
+redesign since 0.1.2. The model-construction entry point and the fitted-model
+class were renamed from `bridge` to `mf_model`, and `bridge()` remains as a
+deprecated compatibility wrapper that warns and forwards, so existing code
+keeps working.
+
+It also contains two user-visible breaking changes, both correcting methods
+that did not honour their documented contract:
 
 * `summary()` on an `"mf_model"` object now returns a `"summary.mf_model"`
   object, following the convention of `summary.lm()`, instead of printing and

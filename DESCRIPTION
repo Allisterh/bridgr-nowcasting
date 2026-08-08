@@ -1,7 +1,7 @@
 Package: bridgr
 Type: Package
 Title: Bridging Data Frequencies for Timely Economic Forecasts
-Version: 0.2.0
+Version: 1.0.0
 Authors@R: c(
     person(
       "Marc", "Burri", , "marc.burri91@gmail.com",
