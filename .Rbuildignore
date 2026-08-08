@@ -16,6 +16,7 @@
 ^bridgr\.Rproj$
 ^data-raw($|/)
 ^pkgdown($|/)
+^docs($|/)
 ^LICENSE\.md$
 ^\.github$
 ^CODE_OF_CONDUCT\.md$
