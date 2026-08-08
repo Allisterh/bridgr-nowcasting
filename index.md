@@ -1,0 +1,182 @@
+# bridgr
+
+`bridgr` provides a unified workflow for **bridging high-frequency
+indicators to lower-frequency target series** — the practical job at the
+heart of nowcasting and forecasting macroeconomic variables such as GDP
+or inflation. It supports classical bridge equations as well as
+MIDAS-style mixed-frequency regressions (`expalmon`, `beta`,
+unrestricted / U-MIDAS) under a single interface, with automatic
+frequency alignment, indicator forecasting, and aggregation.
+
+In a typical workflow `bridgr` takes a low-frequency target (e.g.,
+quarterly GDP) and one or more higher-frequency indicators (e.g.,
+monthly surveys or daily web data), forecasts any missing indicator
+observations, aggregates them to the target frequency, and fits a
+regression with optional autoregressive target dynamics. This makes it
+possible to produce timely predictions well before the official release
+of the low-frequency data — which is essential for policymakers, central
+banks, and applied forecasters who need early reads on the macroeconomy.
+
+`bridgr` supports regular frequency ladders from `second` up to `year`,
+several deterministic and model-based indicator forecasting rules, and
+multiple aggregation choices including joint `expalmon` and `beta`
+weighting. If a target period contains more high-frequency observations
+than implied by the current frequency mapping, the package keeps the
+most recent observations and reports a summarized warning.
+
+Compared with [`midasr`](https://CRAN.R-project.org/package=midasr),
+which is a broad toolkit for estimating, testing, selecting, and
+forecasting MIDAS regressions, `bridgr` focuses on end-to-end nowcasting
+workflows with automatic frequency alignment, indicator extension,
+aggregation, and a simpler interface from raw series to forecast.
+Compared with [`midasml`](https://CRAN.R-project.org/package=midasml),
+which targets high-dimensional mixed-frequency time-series and panel
+models with regularization methods such as sparse-group LASSO, `bridgr`
+is aimed at lower-dimensional applied forecasting settings where
+transparent specification, interpretation, and standard forecasting
+tooling are the priority.
+
+## Installation
+
+From CRAN:
+
+``` r
+
+install.packages("bridgr")
+```
+
+You can install the development version of `bridgr` like so:
+
+``` r
+
+# install.packages("devtools")
+devtools::install_github("marcburri/bridgr")
+```
+
+## Example
+
+This example estimates a bridge model with uncertainty output:
+
+``` r
+
+suppressPackageStartupMessages(library(bridgr))
+
+gdp <- suppressMessages(tsbox::ts_na_omit(tsbox::ts_pc(bridgr::gdp)))
+
+bridge_model <- mf_model(
+  target = gdp,
+  indic = baro,
+  indic_predict = "auto.arima",
+  indic_aggregators = "mean",
+  indic_lags = 2,
+  target_lags = 1,
+  h = 2,
+  se = TRUE
+)
+
+forecast(bridge_model)
+#> Mixed-frequency forecast
+#> -----------------------------------
+#> Target series: gdp
+#> Forecast horizon: 2
+#> Uncertainty: prediction intervals from residual resampling
+#> Simulation paths: 100
+#> -----------------------------------
+#>   time       mean  se    lower_80 upper_80 lower_95 upper_95
+#> 1 2023-01-01 0.808 0.572 -0.075   1.412    -0.265   1.896   
+#> 2 2023-04-01 0.468 0.678 -0.304   1.343    -0.642   2.788
+
+summary(bridge_model)
+#> Mixed-frequency model summary
+#> -----------------------------------
+#> Target series: gdp
+#> Target frequency: quarter
+#> Forecast horizon: 2
+#> Estimation rows: 72
+#> Regressors: baro, baro_lag1, baro_lag2, gdp_lag1
+#> -----------------------------------
+#> Target equation coefficients:
+#>             Estimate HAC SE
+#> (Intercept)   -6.356  1.254
+#> baro           0.159  0.031
+#> baro_lag1     -0.134  0.049
+#> baro_lag2      0.042  0.019
+#> gdp_lag1       0.223  0.143
+#> -----------------------------------
+#> Model fit:
+#>  Statistic               Value
+#>  R-squared               0.712
+#>  Adjusted R-squared      0.694
+#>  Residual standard error 0.747
+#> -----------------------------------
+#> Indicator summary:
+#>      Frequency Predict    Aggregation
+#> baro month     auto.arima mean       
+#> -----------------------------------
+#> Uncertainty:
+#> Coefficient SEs: hac
+#> Prediction intervals: residual resampling
+#> Simulation paths: 100
+#> -----------------------------------
+```
+
+With `se = TRUE`, `bridgr` reports HAC or Delta-HAC coefficient standard
+errors and residual-resampling prediction intervals.
+
+If you want data-driven within-period weights instead of a simple
+deterministic aggregator, you can switch the indicator aggregator to
+`expalmon`. The corresponding weights are estimated jointly within the
+bridge model, and `solver_options` let you control the optimization.
+
+``` r
+
+expalmon_model <- mf_model(
+  target = gdp,
+  indic = baro,
+  indic_predict = "auto.arima",
+  indic_aggregators = "expalmon",
+  solver_options = list(seed = 123, n_starts = 3),
+  h = 1
+)
+
+summary(expalmon_model)
+#> Mixed-frequency model summary
+#> -----------------------------------
+#> Target series: gdp
+#> Target frequency: quarter
+#> Forecast horizon: 1
+#> Estimation rows: 75
+#> Regressors: baro
+#> -----------------------------------
+#> Target equation coefficients:
+#>             Estimate
+#> (Intercept)   -9.371
+#> baro           0.098
+#> -----------------------------------
+#> Model fit:
+#>  Statistic               Value
+#>  R-squared               0.533
+#>  Adjusted R-squared      0.527
+#>  Residual standard error 0.913
+#> -----------------------------------
+#> Indicator summary:
+#>      Frequency Predict    Aggregation
+#> baro month     auto.arima expalmon   
+#> -----------------------------------
+#> Estimated parametric aggregation:
+#> baro weights: 0.006, 0.994, 0.000
+#> baro parameters: -4.914, -10.000
+#> -----------------------------------
+#> Joint parametric aggregation optimization:
+#> Method: L-BFGS-B
+#> Objective value: 60.832
+#> Convergence code: 0
+#> Best start: 1 / 3
+#> -----------------------------------
+```
+
+## Code of Conduct
+
+Please note that the bridgr project is released with a [Contributor Code
+of Conduct](https://marcburri.github.io/bridgr/CODE_OF_CONDUCT.html). By
+contributing to this project, you agree to abide by its terms.

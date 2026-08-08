@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Introduction to bridgr • bridgr</title>
+<title>Getting Started with bridgr • bridgr</title>
 <!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
 <link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
@@ -18,10 +18,10 @@
     }
   };
 </script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Introduction to bridgr">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Getting Started with bridgr">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -31,7 +31,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">bridgr</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,6 +42,15 @@
       <ul class="navbar-nav me-auto">
 <li class="active nav-item"><a class="nav-link" href="../articles/bridgr.html">Get started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
+<li><a class="dropdown-item" href="../articles/mixed-frequency-modeling.html">Aggregation and Mixed-Frequency Modeling in bridgr</a></li>
+    <li><a class="dropdown-item" href="../articles/ragged-edge-nowcasting.html">Ragged-Edge Nowcasting with bridgr</a></li>
+    <li><a class="dropdown-item" href="../articles/real-time-nowcasting.html">A Real-Time Nowcasting Exercise</a></li>
+    <li><a class="dropdown-item" href="../articles/uncertainty-and-scenarios.html">Uncertainty and Scenario Forecasting</a></li>
+  </ul>
+</li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
@@ -69,7 +78,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Introduction to bridgr</h1>
+      <img src="../logo.png" class="logo" alt=""><h1>Getting Started with bridgr</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/marcburri/bridgr/blob/main/vignettes/bridgr.Rmd" class="external-link"><code>vignettes/bridgr.Rmd</code></a></small>
@@ -79,232 +88,388 @@
     
     
 <div class="section level2">
-<h2 id="what-are-bridge-models">What Are Bridge Models?<a class="anchor" aria-label="anchor" href="#what-are-bridge-models"></a>
+<h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
-<p>Bridge models are statistical tools designed to address the mismatch
-in frequency between economic indicators and a target variable, such as
-GDP. For instance, GDP is typically reported quarterly, while many
-relevant indicators (e.g., industrial production, survey data) are
-available monthly or even daily. Bridge models “bridge” this gap by
-converting high-frequency indicators into a form that aligns with the
-target variable’s frequency.</p>
-<p>These models are widely used in nowcasting and short-term
-forecasting. They are particularly useful when:</p>
-<ul>
-<li>Data for the target variable is reported with a lag (e.g., GDP is
-often released with a delay).</li>
-<li>High-frequency indicators provide early signals about the state of
-the economy.</li>
-</ul>
-<p>By leveraging real-time data, bridge models can improve forecast
-accuracy and provide timely insights.</p>
+<p><code>bridgr</code> covers classic bridge equations, MIDAS-style
+mixed-frequency regressions, and intermediate specifications that
+estimate within-period weights from the data, all behind a single
+workflow for <strong>bridging high-frequency indicators to a
+lower-frequency target</strong>.</p>
+<p>The core workflow is always the same:</p>
+<ol style="list-style-type: decimal">
+<li>Provide one lower-frequency target series and one or more
+higher-frequency indicators.</li>
+<li>Decide how missing indicator observations should be handled with
+<code>indic_predict</code>.</li>
+<li>Decide how indicators should be aligned to the target frequency with
+<code>indic_aggregators</code>.</li>
+<li>Fit the target equation with <code><a href="../reference/mf_model.html">mf_model()</a></code>, inspect it
+with <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>, and produce target-period forecasts with
+<code><a href="https://generics.r-lib.org/reference/forecast.html" class="external-link">forecast()</a></code>.</li>
+</ol>
+<p>This vignette walks through that workflow with the package’s built-in
+Swiss GDP and indicator data.</p>
 </div>
 <div class="section level2">
-<h2 id="the-bridge-model-framework">The Bridge Model Framework<a class="anchor" aria-label="anchor" href="#the-bridge-model-framework"></a>
+<h2 id="example-data">Example Data<a class="anchor" aria-label="anchor" href="#example-data"></a>
 </h2>
-<p>Bridge models exploit the relationship between a target variable,
-such as quarterly GDP (<span class="math inline">\(y_t\)</span>), and
-multiple high-frequency indicators (<span class="math inline">\(x_{t}^{(i)}\)</span>), which are observed monthly
-or at even higher frequencies. The primary challenge is to harmonize
-these different frequencies while preserving the information embedded in
-the indicators.</p>
-<div class="section level3">
-<h3 id="aggregation-of-indicators">Aggregation of Indicators<a class="anchor" aria-label="anchor" href="#aggregation-of-indicators"></a>
-</h3>
-<p>To align high-frequency indicators (<span class="math inline">\(x_{t}^{(i)}\)</span>) with the target variable’s
-frequency (<span class="math inline">\(y_t\)</span>), a transformation
-or aggregation process is applied. Let <span class="math inline">\(K\)</span> represent the number of
-higher-frequency periods within a single lower-frequency period (e.g.,
-<span class="math inline">\(K=3\)</span> for monthly data aggregated to
-a quarter). The aggregation step can be represented as:</p>
-<p><span class="math display">\[
-\bar{x}_{t}^{(i)} =  \sum_{k=0}^{K-1} \omega (k) L^{k/K} x_{t}^{(i)}
-\]</span></p>
-<p>where:</p>
-<ul>
-<li><p>The lag operator is defined as <span class="math inline">\(L^{1/3} x_{t}^{(i)} =
-x_{t-1/3}^{(i)}\)</span></p></li>
-<li><p><span class="math inline">\(x_{t}^{(i)}\)</span>: The value of
-the indicator <span class="math inline">\(i\)</span> of period <span class="math inline">\(t\)</span>.</p></li>
-<li><p><span class="math inline">\(\bar{x}_{t}^{(i)}\)</span>: The
-aggregated indicator for period <span class="math inline">\(t\)</span>.</p></li>
-<li><p><span class="math inline">\(\omega (k)\)</span>: The weight
-assigned to the k-th period of the higher frequency data.</p></li>
-</ul>
-<p>In many applications, <span class="math inline">\(\omega (k)\)</span>
-is simply an <strong>average</strong> over the values in the higher
-frequency periods. Alternative aggregation techniques include taking the
-<strong>last observation</strong> (e.g., the last month of the quarter)
-or applying <strong>weighted averages</strong>.</p>
-</div>
-<div class="section level3">
-<h3 id="the-model-specification">The Model Specification<a class="anchor" aria-label="anchor" href="#the-model-specification"></a>
-</h3>
-<p>Once the indicators are aligned with the target frequency, the bridge
-model is typically specified as a linear regression:</p>
-<p><span class="math display">\[
-y_t = \beta_0 + \sum_{ i } \sum_{p_i=0}^{P^{(i)}} \beta_{p_i} L^p
-\bar{x}_{t}^{(i)} + \varepsilon_t
-\]</span></p>
-<p>where:</p>
-<ul>
-<li><p><span class="math inline">\(P^{(i)}\)</span>: The lags to include
-for indicator <span class="math inline">\(i\)</span>.</p></li>
-<li><p><span class="math inline">\(\beta_{p_i}\)</span>: Coefficients
-capturing the relationship between the indicators and the target
-variable.</p></li>
-<li><p><span class="math inline">\(\varepsilon_t\)</span>: The error
-term.</p></li>
-</ul>
-<p>Bridge models also handle cases where some high-frequency indicators
-are not fully observed at the time of forecasting. In such cases,
-missing observations for the current period are imputed or forecast
-using time series models (e.g., ARIMA, ETS). This allows predictions
-even when recent observations are missing. This combination of
-aggregation and forecasting ensures that bridge models are versatile
-tools for dealing with incomplete data scenarios.</p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="a-quick-example">A Quick Example<a class="anchor" aria-label="anchor" href="#a-quick-example"></a>
-</h2>
-<p>The <code>bridgr</code> package simplifies the construction and
-estimation of bridge models. This vignette demonstrates how to use the
-package with a quarterly GDP series (gdp) and a monthly economic
-indicator (baro).</p>
-<div class="section level3">
-<h3 id="loading-the-data">Loading the Data<a class="anchor" aria-label="anchor" href="#loading-the-data"></a>
-</h3>
-<p>For this example, the two follwoing Swiss datasets are used:</p>
-<ul>
-<li>
-<code>gdp</code>: Quarterly GDP data.</li>
-<li>
-<code>baro</code>: Monthly economic indicator data.</li>
-</ul>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Load libraries</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/marcburri/bridgr" class="external-link">bridgr</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://docs.ropensci.org/tsbox/" class="external-link">tsbox</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">gdp_growth</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">suppressMessages</a></span><span class="op">(</span><span class="fu">tsbox</span><span class="fu">::</span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_na_omit.html" class="external-link">ts_na_omit</a></span><span class="op">(</span><span class="fu">tsbox</span><span class="fu">::</span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_pc.html" class="external-link">ts_pc</a></span><span class="op">(</span><span class="va">gdp</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Example data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"gdp"</span><span class="op">)</span>  <span class="co"># Quarterly GDP data</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"baro"</span><span class="op">)</span> <span class="co"># Monthly economic indicator</span></span>
-<span></span>
-<span><span class="va">gdp</span> <span class="op">&lt;-</span> <span class="fu">tsbox</span><span class="fu">::</span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_pc.html" class="external-link">ts_pc</a></span><span class="op">(</span><span class="va">gdp</span><span class="op">)</span> <span class="co"># Calculate growth rate</span></span>
-<span></span>
-<span><span class="co"># Visualize the data</span></span>
-<span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_ggplot.html" class="external-link">ts_ggplot</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_scale.html" class="external-link">ts_scale</a></span><span class="op">(</span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_c.html" class="external-link">ts_c</a></span><span class="op">(</span><span class="va">baro</span>, <span class="va">gdp</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  title <span class="op">=</span> <span class="st">"Quarterly gdp and monthly economic indicator"</span>,</span>
-<span>  subtitle <span class="op">=</span> <span class="st">"Scaled to mean 0 and variance 1"</span></span>
-<span>  <span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_ggplot.html" class="external-link">theme_tsbox</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p><img src="bridgr_files/figure-html/setup-1.png" alt="Visualizing the data" width="700"></p>
-<p>By visualizing the data,it becomes obvious that the monthly economic
-indicator (baro) is available at a higher frequency than the quarterly
-GDP data. Moreover, there is a significant correlation.</p>
-</div>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">gdp_growth</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 2</span></span></span>
+<span><span class="co">#&gt;   time       values</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 2004-04-01  0.839</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2004-07-01 -<span style="color: #BB0000;">0.104</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> 2004-10-01  0.242</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> 2005-01-01  0.860</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> 2005-04-01  1.06 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> 2005-07-01  1.15</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">baro</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 2</span></span></span>
+<span><span class="co">#&gt;   time       values</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 2004-01-01   109.</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2004-02-01   108.</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> 2004-03-01   109.</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> 2004-04-01   110.</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> 2004-05-01   109.</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> 2004-06-01   105.</span></span></code></pre></div>
+<p><code>gdp_growth</code> is quarterly, while <code>baro</code> is
+monthly. <code><a href="../reference/mf_model.html">mf_model()</a></code> recognizes the frequency mismatch
+automatically and aligns the indicator to the target frequency before
+fitting the target equation.</p>
 <div class="section level3">
-<h3 id="estimating-the-bridge-model">Estimating the Bridge Model<a class="anchor" aria-label="anchor" href="#estimating-the-bridge-model"></a>
+<h3 id="stationarity-expectations">Stationarity expectations<a class="anchor" aria-label="anchor" href="#stationarity-expectations"></a>
 </h3>
+<p><code>bridgr</code> assumes that the series you submit are already on
+a scale that is suitable for linear regression — typically growth rates,
+differences, or similarly stabilized transformations. The package does
+not automatically re-transform inputs, but you can enable a lightweight
+pre-fit diagnostic through <code>stationarity = "warn"</code>. The
+example below shows the warning on a level GDP series and confirms that
+it disappears after differencing to growth rates.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Estimate the bridge model</span></span>
-<span><span class="va">bridge_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/bridge.html">bridge</a></span><span class="op">(</span></span>
-<span>  target <span class="op">=</span> <span class="va">gdp</span>, </span>
-<span>  indic <span class="op">=</span> <span class="va">baro</span> , </span>
-<span>  indic_lags <span class="op">=</span> <span class="fl">1</span>, </span>
-<span>  target_lags<span class="op">=</span><span class="fl">1</span>, </span>
-<span>  h<span class="op">=</span><span class="fl">2</span> </span>
-<span><span class="op">)</span></span>
-<span><span class="co">#&gt; The start dates of the target and indicator variables do not match. Aligning them to 2004-04-01</span></span>
-<span><span class="co">#&gt; Dependent variable: gdp | Frequency: quarter | Estimation sample: 2004-04-01 - 2022-10-01 | Forecast horizon: 2 quarter(s)</span></span></code></pre></div>
-<p>Because by calculating the GDP growth rate, there is one observation
-less at the beginning of the GDP series. The <code>bridge</code>function
-detects mismatched starting dates and aligns them to the earliest common
-date. The model is then estimated using the specified lags for the
-target and indicator variables. The <code>h</code> argument specifies
-the number of periods to forecast the lower frequency variable. The
-<code>bridge</code> model returns both the dataset the main model was
-estimated as well as the forecasted dataset for the indicator
-variables.</p>
+<code class="sourceCode R"><span><span class="va">gdp_level_recent</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_tail</a></span><span class="op">(</span><span class="va">gdp</span>, n <span class="op">=</span> <span class="fl">40</span><span class="op">)</span></span>
+<span><span class="va">baro_recent</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_tail</a></span><span class="op">(</span><span class="va">baro</span>, n <span class="op">=</span> <span class="fl">120</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/mf_model.html">mf_model</a></span><span class="op">(</span></span>
+<span>    target <span class="op">=</span> <span class="va">gdp_level_recent</span>,</span>
+<span>    indic <span class="op">=</span> <span class="va">baro_recent</span>,</span>
+<span>    indic_predict <span class="op">=</span> <span class="st">"last"</span>,</span>
+<span>    indic_aggregators <span class="op">=</span> <span class="st">"mean"</span>,</span>
+<span>    h <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>    stationarity <span class="op">=</span> <span class="st">"warn"</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  warning <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">w</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/message.html" class="external-link">message</a></span><span class="op">(</span><span class="st">"Warning captured: "</span>, <span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">w</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning captured: Heuristic stationarity checks flagged target series `gdp_level_recent` (KPSS differencing signal). Consider differences, growth rates, log changes, demeaning, or other variance-stabilizing transformations before fitting.</span></span>
+<span></span>
+<span><span class="va">stationary_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mf_model.html">mf_model</a></span><span class="op">(</span></span>
+<span>  target <span class="op">=</span> <span class="va">gdp_growth</span>,</span>
+<span>  indic <span class="op">=</span> <span class="va">baro</span>,</span>
+<span>  indic_predict <span class="op">=</span> <span class="st">"last"</span>,</span>
+<span>  indic_aggregators <span class="op">=</span> <span class="st">"mean"</span>,</span>
+<span>  h <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  stationarity <span class="op">=</span> <span class="st">"warn"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+<div class="section level2">
+<h2 id="a-basic-bridge-model">A Basic Bridge Model<a class="anchor" aria-label="anchor" href="#a-basic-bridge-model"></a>
+</h2>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Inspect the datasets</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="va">bridge_model</span><span class="op">$</span><span class="va">estimation_set</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 4</span></span></span>
-<span><span class="co">#&gt;   time        baro baro_lag1   gdp</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 2021-07-01 112.      125.  2.34 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2021-10-01 104.      112.  0.411</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> 2022-01-01  97.4     104.  0.105</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> 2022-04-01  94.3      97.4 1.03 </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> 2022-07-01  90.0      94.3 0.255</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> 2022-10-01  90.7      90.0 0.102</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">bridge_model</span><span class="op">$</span><span class="va">forecast_set</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">bridge_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mf_model.html">mf_model</a></span><span class="op">(</span></span>
+<span>  target <span class="op">=</span> <span class="va">gdp_growth</span>,</span>
+<span>  indic <span class="op">=</span> <span class="va">baro</span>,</span>
+<span>  indic_predict <span class="op">=</span> <span class="st">"auto.arima"</span>,</span>
+<span>  indic_aggregators <span class="op">=</span> <span class="st">"mean"</span>,</span>
+<span>  indic_lags <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  target_lags <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  h <span class="op">=</span> <span class="fl">2</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/forecast.html" class="external-link">forecast</a></span><span class="op">(</span><span class="va">bridge_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mixed-frequency forecast</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Target series: gdp_growth</span></span>
+<span><span class="co">#&gt; Forecast horizon: 2</span></span>
+<span><span class="co">#&gt; Uncertainty: point forecast only</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt;   time       mean </span></span>
+<span><span class="co">#&gt; 1 2023-01-01 0.875</span></span>
+<span><span class="co">#&gt; 2 2023-04-01 0.678</span></span></code></pre></div>
+<p>The default <code>"mean"</code> aggregator is the classic
+bridge-model setup: each monthly block is completed first, then averaged
+to the quarterly frequency before the target equation is estimated.</p>
+<p><code><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame()</a></code> returns the aligned data that went into
+estimation, and the future target-period regressor path used for
+forecasting.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">tail</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame</a></span><span class="op">(</span><span class="va">bridge_model</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 5</span></span></span>
+<span><span class="co">#&gt;   time       gdp_growth  baro baro_lag1 gdp_growth_lag1</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 2021-07-01      2.34  112.      125.            2.47 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2021-10-01      0.411 104.      112.            2.34 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> 2022-01-01      0.105  97.4     104.            0.411</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> 2022-04-01      1.03   94.3      97.4           0.105</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> 2022-07-01      0.255  90.0      94.3           1.03 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> 2022-10-01      0.102  90.7      90.0           0.255</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/model.frame.html" class="external-link">model.frame</a></span><span class="op">(</span><span class="va">bridge_model</span>, which <span class="op">=</span> <span class="st">"forecast"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 3</span></span></span>
 <span><span class="co">#&gt;   time        baro baro_lag1</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 2023-01-01  97.4      90.7</span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2023-04-01  99.8      97.4</span></span></code></pre></div>
-</div>
 <div class="section level3">
-<h3 id="forecasting">Forecasting<a class="anchor" aria-label="anchor" href="#forecasting"></a>
+<h3 id="lags-in-the-target-equation">Lags in the target equation<a class="anchor" aria-label="anchor" href="#lags-in-the-target-equation"></a>
 </h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Forecasting using the bridge model</span></span>
-<span><span class="va">fcst</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://generics.r-lib.org/reference/forecast.html" class="external-link">forecast</a></span><span class="op">(</span><span class="va">bridge_model</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">forecast</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  <span class="st">"time"</span> <span class="op">=</span> <span class="va">fcst</span><span class="op">$</span><span class="va">forecast_set</span><span class="op">$</span><span class="va">time</span>,</span>
-<span>  <span class="st">"forecast"</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">fcst</span><span class="op">$</span><span class="va">mean</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Visualize the forecast</span></span>
-<span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_ggplot.html" class="external-link">ts_ggplot</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_span.html" class="external-link">ts_span</a></span><span class="op">(</span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_ts.html" class="external-link">ts_tbl</a></span><span class="op">(</span><span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_c.html" class="external-link">ts_c</a></span><span class="op">(</span><span class="va">gdp</span>, <span class="va">forecast</span><span class="op">)</span><span class="op">)</span>, start <span class="op">=</span> <span class="fl">2017</span><span class="op">)</span>,</span>
-<span>  title <span class="op">=</span> <span class="st">"Forecasted GDP"</span>,</span>
-<span>  subtitle <span class="op">=</span> <span class="st">"Bridge model forecast"</span></span>
-<span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://docs.ropensci.org/tsbox/reference/ts_ggplot.html" class="external-link">theme_tsbox</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<p><img src="bridgr_files/figure-html/forecasting-1.png" alt="Forecasted GDP" width="700"></p>
+<p><code>target_lags = p</code> adds <code>p</code> autoregressive lags
+of the target to the right-hand side of the regression.
+<code>indic_lags = q</code> adds <code>q</code> lags of <em>each
+aggregated indicator</em> (after frequency alignment). Both default to
+<code>0</code>. In the example above the target equation is</p>
+<p><span class="math display">\[
+\Delta y_t = \alpha
+  + \rho \, \Delta y_{t-1}
+  + \beta_0 \, \bar{x}_t
+  + \beta_1 \, \bar{x}_{t-1}
+  + \varepsilon_t,
+\]</span></p>
+<p>where <span class="math inline">\(\bar{x}_t\)</span> is the
+within-quarter mean of the monthly indicator. Forecasts beyond the first
+horizon are produced recursively, with simulated target lags taking the
+place of observed ones once the in-sample history is exhausted.</p>
 </div>
-<div class="section level3">
-<h3 id="summary">Summary<a class="anchor" aria-label="anchor" href="#summary"></a>
-</h3>
+</div>
+<div class="section level2">
+<h2 id="standardized-output">Standardized Output<a class="anchor" aria-label="anchor" href="#standardized-output"></a>
+</h2>
+<p><code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> and <code><a href="https://generics.r-lib.org/reference/forecast.html" class="external-link">forecast()</a></code> use a stable
+package-specific layout. The base output is the same across bridge,
+mixed-frequency, and direct-alignment specifications. Additional
+details, such as optimization summaries or uncertainty settings, are
+appended only when they are relevant.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Summarize the information in the bridge model</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">bridge_model</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Bridge model summary</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">bridge_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mixed-frequency model summary</span></span>
 <span><span class="co">#&gt; -----------------------------------</span></span>
-<span><span class="co">#&gt; Main model:</span></span>
+<span><span class="co">#&gt; Target series: gdp_growth</span></span>
+<span><span class="co">#&gt; Target frequency: quarter</span></span>
+<span><span class="co">#&gt; Forecast horizon: 2</span></span>
+<span><span class="co">#&gt; Estimation rows: 73</span></span>
+<span><span class="co">#&gt; Regressors: baro, baro_lag1, gdp_growth_lag1</span></span>
 <span><span class="co">#&gt; -----------------------------------</span></span>
-<span><span class="co">#&gt; Series:  gdp </span></span>
-<span><span class="co">#&gt; Regression with ARIMA(1,0,0) errors </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Coefficients:</span></span>
-<span><span class="co">#&gt;          ar1  intercept    baro  baro_lag1</span></span>
-<span><span class="co">#&gt;       0.2426    -6.4929  0.1615    -0.0917</span></span>
-<span><span class="co">#&gt; s.e.  0.1213     1.3430  0.0125     0.0121</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; sigma^2 = 0.5625:  log likelihood = -81.69</span></span>
-<span><span class="co">#&gt; AIC=173.38   AICc=174.26   BIC=184.9</span></span>
+<span><span class="co">#&gt; Target equation coefficients:</span></span>
+<span><span class="co">#&gt;                 Estimate</span></span>
+<span><span class="co">#&gt; (Intercept)       -6.249</span></span>
+<span><span class="co">#&gt; baro               0.151</span></span>
+<span><span class="co">#&gt; baro_lag1         -0.084</span></span>
+<span><span class="co">#&gt; gdp_growth_lag1    0.012</span></span>
 <span><span class="co">#&gt; -----------------------------------</span></span>
-<span><span class="co">#&gt; Single indicator models:</span></span>
+<span><span class="co">#&gt; Model fit:</span></span>
+<span><span class="co">#&gt;  Statistic               Value</span></span>
+<span><span class="co">#&gt;  R-squared               0.682</span></span>
+<span><span class="co">#&gt;  Adjusted R-squared      0.668</span></span>
+<span><span class="co">#&gt;  Residual standard error 0.773</span></span>
 <span><span class="co">#&gt; -----------------------------------</span></span>
-<span><span class="co">#&gt; Series:  baro </span></span>
-<span><span class="co">#&gt; ARIMA(1,0,2) with non-zero mean </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; Coefficients:</span></span>
-<span><span class="co">#&gt;          ar1     ma1     ma2      mean</span></span>
-<span><span class="co">#&gt;       0.6688  0.5305  0.3316  100.8580</span></span>
-<span><span class="co">#&gt; s.e.  0.0653  0.0799  0.0753    1.5774</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; sigma^2 = 18.46:  log likelihood = -646.14</span></span>
-<span><span class="co">#&gt; AIC=1302.28   AICc=1302.55   BIC=1319.36</span></span>
-<span><span class="co">#&gt; Aggregation to low frequency:</span></span>
-<span><span class="co">#&gt; Using mean over values in corresponding periods.</span></span>
+<span><span class="co">#&gt; Indicator summary:</span></span>
+<span><span class="co">#&gt;      Frequency Predict    Aggregation</span></span>
+<span><span class="co">#&gt; baro month     auto.arima mean       </span></span>
 <span><span class="co">#&gt; -----------------------------------</span></span></code></pre></div>
 </div>
+<div class="section level2">
+<h2 id="forecast-visualization">Forecast Visualization<a class="anchor" aria-label="anchor" href="#forecast-visualization"></a>
+</h2>
+<p>The package also provides a built-in plotting method for fitted
+mixed-frequency models. With <code>type = "forecast"</code>, it shows
+the observed target history together with the forecast path generated by
+the model.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bridge_model</span>, type <span class="op">=</span> <span class="st">"forecast"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="bridgr_files/figure-html/forecast-plot-1.png" class="r-plt" alt="" width="700"></p>
+</div>
+<div class="section level2">
+<h2 id="multiple-indicators">Multiple Indicators<a class="anchor" aria-label="anchor" href="#multiple-indicators"></a>
+</h2>
+<p><code><a href="../reference/mf_model.html">mf_model()</a></code> accepts any number of indicators in a single
+long-format table. Indicators may share a frequency or come from
+different frequencies, in which case each one is aligned to the target
+separately. The example below pairs the level of the KOF barometer with
+its year-over-year change as two monthly indicators.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">baro_yoy</span> <span class="op">&lt;-</span> <span class="va">baro</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html" class="external-link">arrange</a></span><span class="op">(</span><span class="va">time</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>values <span class="op">=</span> <span class="va">values</span> <span class="op">-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/lead-lag.html" class="external-link">lag</a></span><span class="op">(</span><span class="va">values</span>, <span class="fl">12</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">values</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">indic_multi</span> <span class="op">&lt;-</span> <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">bind_rows</a></span><span class="op">(</span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span><span class="va">baro</span>, id <span class="op">=</span> <span class="st">"baro_level"</span><span class="op">)</span>,</span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span><span class="va">baro_yoy</span>, id <span class="op">=</span> <span class="st">"baro_yoy"</span><span class="op">)</span></span>
+<span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">id</span>, <span class="va">time</span>, <span class="va">values</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">multi_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mf_model.html">mf_model</a></span><span class="op">(</span></span>
+<span>  target <span class="op">=</span> <span class="va">gdp_growth</span>,</span>
+<span>  indic <span class="op">=</span> <span class="va">indic_multi</span>,</span>
+<span>  indic_predict <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"last"</span>, <span class="st">"last"</span><span class="op">)</span>,</span>
+<span>  indic_aggregators <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mean"</span>, <span class="st">"mean"</span><span class="op">)</span>,</span>
+<span>  target_lags <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  h <span class="op">=</span> <span class="fl">1</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/stats/case.names.html" class="external-link">variable.names</a></span><span class="op">(</span><span class="va">multi_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "baro_level"      "baro_yoy"        "gdp_growth_lag1"</span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/forecast.html" class="external-link">forecast</a></span><span class="op">(</span><span class="va">multi_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mixed-frequency forecast</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Target series: gdp_growth</span></span>
+<span><span class="co">#&gt; Forecast horizon: 1</span></span>
+<span><span class="co">#&gt; Uncertainty: point forecast only</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt;   time       mean  </span></span>
+<span><span class="co">#&gt; 1 2023-01-01 -0.324</span></span></code></pre></div>
+<p>Both indicators are aggregated independently and enter the final
+target equation as separate regressors.</p>
+</div>
+<div class="section level2">
+<h2 id="direct-alignment">Direct Alignment<a class="anchor" aria-label="anchor" href="#direct-alignment"></a>
+</h2>
+<p>If you set <code>indic_predict = "direct"</code>, <code>bridgr</code>
+switches from indicator forecasting to direct alignment based only on
+observed complete high-frequency blocks. In that case, the latest
+complete blocks are assigned backward to target periods instead of being
+forecast forward first, and they are averaged within each target
+period.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">direct_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mf_model.html">mf_model</a></span><span class="op">(</span></span>
+<span>  target <span class="op">=</span> <span class="va">gdp_growth</span>,</span>
+<span>  indic <span class="op">=</span> <span class="va">baro</span>,</span>
+<span>  indic_predict <span class="op">=</span> <span class="st">"direct"</span>,</span>
+<span>  h <span class="op">=</span> <span class="fl">1</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/forecast.html" class="external-link">forecast</a></span><span class="op">(</span><span class="va">direct_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mixed-frequency forecast</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Target series: gdp_growth</span></span>
+<span><span class="co">#&gt; Forecast horizon: 1</span></span>
+<span><span class="co">#&gt; Uncertainty: point forecast only</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt;   time       mean  </span></span>
+<span><span class="co">#&gt; 1 2023-01-01 -0.497</span></span></code></pre></div>
+<p>This is particularly useful at the ragged edge when you want to work
+only with observed high-frequency information and avoid a separate
+indicator forecasting step.</p>
+</div>
+<div class="section level2">
+<h2 id="non-standard-calendars">Non-Standard Calendars<a class="anchor" aria-label="anchor" href="#non-standard-calendars"></a>
+</h2>
+<p>By default the package uses a regular frequency ladder
+(<code>second</code> → <code>minute</code> → <code>hour</code> →
+<code>day</code> → <code>week</code> → <code>month</code> →
+<code>quarter</code> → <code>year</code>) with conventional conversion
+factors such as 60 seconds per minute, 24 hours per day, and 3 months
+per quarter. If your data follow a non-standard calendar — for example a
+5-day business week or 50 working weeks per year — pass a named numeric
+vector to <code>frequency_conversions</code> to override the defaults.
+See <code><a href="../reference/mf_model.html">?mf_model</a></code> for the full set of recognized names.</p>
+</div>
+<div class="section level2">
+<h2 id="optional-uncertainty-output">Optional Uncertainty Output<a class="anchor" aria-label="anchor" href="#optional-uncertainty-output"></a>
+</h2>
+<p>By default, <code>bridgr</code> returns point forecasts only. If you
+want uncertainty output, request it at estimation time with
+<code>se = TRUE</code> and, if needed, custom simulation or full-system
+bootstrap controls through <code>bootstrap</code>.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">uncertainty_model</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/mf_model.html">mf_model</a></span><span class="op">(</span></span>
+<span>  target <span class="op">=</span> <span class="va">gdp_growth</span>,</span>
+<span>  indic <span class="op">=</span> <span class="va">baro</span>,</span>
+<span>  indic_predict <span class="op">=</span> <span class="st">"auto.arima"</span>,</span>
+<span>  indic_aggregators <span class="op">=</span> <span class="st">"mean"</span>,</span>
+<span>  target_lags <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  h <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>  se <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  bootstrap <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>N <span class="op">=</span> <span class="fl">40</span>, block_length <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://generics.r-lib.org/reference/forecast.html" class="external-link">forecast</a></span><span class="op">(</span><span class="va">uncertainty_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mixed-frequency forecast</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Target series: gdp_growth</span></span>
+<span><span class="co">#&gt; Forecast horizon: 4</span></span>
+<span><span class="co">#&gt; Uncertainty: prediction intervals from residual resampling</span></span>
+<span><span class="co">#&gt; Simulation paths: 40</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt;   time       mean  se    lower_80 upper_80 lower_95 upper_95</span></span>
+<span><span class="co">#&gt; 1 2023-01-01 0.259 0.742 -0.804   0.975    -1.085   2.423   </span></span>
+<span><span class="co">#&gt; 2 2023-04-01 0.486 0.788 -0.593   1.750    -0.891   1.939   </span></span>
+<span><span class="co">#&gt; 3 2023-07-01 0.500 0.784 -0.601   1.422    -0.961   2.522   </span></span>
+<span><span class="co">#&gt; 4 2023-10-01 0.521 0.865 -0.579   1.626    -0.838   2.742</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">uncertainty_model</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mixed-frequency model summary</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Target series: gdp_growth</span></span>
+<span><span class="co">#&gt; Target frequency: quarter</span></span>
+<span><span class="co">#&gt; Forecast horizon: 4</span></span>
+<span><span class="co">#&gt; Estimation rows: 74</span></span>
+<span><span class="co">#&gt; Regressors: baro, gdp_growth_lag1</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Target equation coefficients:</span></span>
+<span><span class="co">#&gt;                 Estimate HAC SE</span></span>
+<span><span class="co">#&gt; (Intercept)      -10.988  3.304</span></span>
+<span><span class="co">#&gt; baro               0.116  0.033</span></span>
+<span><span class="co">#&gt; gdp_growth_lag1   -0.316  0.120</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Model fit:</span></span>
+<span><span class="co">#&gt;  Statistic               Value</span></span>
+<span><span class="co">#&gt;  R-squared               0.572</span></span>
+<span><span class="co">#&gt;  Adjusted R-squared      0.560</span></span>
+<span><span class="co">#&gt;  Residual standard error 0.886</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Indicator summary:</span></span>
+<span><span class="co">#&gt;      Frequency Predict    Aggregation</span></span>
+<span><span class="co">#&gt; baro month     auto.arima mean       </span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="co">#&gt; Uncertainty:</span></span>
+<span><span class="co">#&gt; Coefficient SEs: hac</span></span>
+<span><span class="co">#&gt; Prediction intervals: residual resampling</span></span>
+<span><span class="co">#&gt; Simulation paths: 40</span></span>
+<span><span class="co">#&gt; -----------------------------------</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">uncertainty_model</span>, type <span class="op">=</span> <span class="st">"forecast"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="bridgr_files/figure-html/uncertainty-example-1.png" class="r-plt" alt="" width="700"></p>
+<p>The uncertainty implementation uses HAC standard errors for the
+linear target equation, or Delta-HAC standard errors when parametric
+aggregation weights are estimated jointly. By default, prediction
+intervals are simulated from resampled centered target-equation
+residuals. If you also set <code>full_system_bootstrap = TRUE</code>,
+<code>bridgr</code> instead uses a full-system target-period block
+bootstrap for both coefficient standard errors and prediction intervals,
+controlled through
+<code>bootstrap = list(N = ..., block_length = ...)</code>.</p>
+</div>
+<div class="section level2">
+<h2 id="where-to-go-next">Where to Go Next<a class="anchor" aria-label="anchor" href="#where-to-go-next"></a>
+</h2>
+<p>The vignette
+<code><a href="../articles/mixed-frequency-modeling.html">vignette("mixed-frequency-modeling", package = "bridgr")</a></code>
+compares the main aggregation strategies and shows how
+<code>bridgr</code> moves from classic bridge models to unrestricted and
+parametric MIDAS-style specifications.</p>
+<p>The vignette
+<code><a href="../articles/ragged-edge-nowcasting.html">vignette("ragged-edge-nowcasting", package = "bridgr")</a></code>
+focuses on <code>indic_predict</code> and the different ways to handle
+incomplete high-frequency data at the forecast origin.</p>
+<p>The vignette
+<code><a href="../articles/uncertainty-and-scenarios.html">vignette("uncertainty-and-scenarios", package = "bridgr")</a></code>
+shows how to work with HAC / Delta-HAC coefficient uncertainty,
+residual-resampling prediction intervals, the optional full-system
+bootstrap, and scenario forecasts based on custom future regressor
+paths.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -317,7 +482,7 @@ variables.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
     </footer>
